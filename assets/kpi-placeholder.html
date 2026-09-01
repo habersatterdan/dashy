@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Company KPIs</title>
+  <style>
+    body { margin:0; font-family:system-ui, sans-serif; background:#0b0f14; color:#e6edf3; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:12px; }
+    .kpi { border:1px solid #1c2733; border-radius:10px; padding:14px; text-align:center; }
+    .val { font-size:30px; font-weight:700; color:#00e676; }
+    .lbl { font-size:12px; color:#9fb0c0; text-transform:uppercase; letter-spacing:.5px; }
+    .warn .val { color:#ffd54f; }
+    .crit .val { color:#ff5252; }
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <div class="kpi"><div class="val">99.98%</div><div class="lbl">Uptime SLA</div></div>
+    <div class="kpi warn"><div class="val">3</div><div class="lbl">Open P2 Tickets</div></div>
+    <div class="kpi crit"><div class="val">1</div><div class="lbl">Active P1</div></div>
+    <div class="kpi"><div class="val">142</div><div class="lbl">Tickets Closed (30d)</div></div>
+    <div class="kpi"><div class="val">18m</div><div class="lbl">Mean Time To Resolve</div></div>
+    <div class="kpi"><div class="val">100%</div><div class="lbl">Backup Success</div></div>
+  </div>
+  <!-- Replace these static tiles with iframes to your BI / Grafana panels. -->
+</body>
+</html>

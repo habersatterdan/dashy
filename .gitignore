@@ -1,0 +1,9 @@
+# Secrets & generated artifacts - never commit these
+.env
+nginx/certs/*.crt
+nginx/certs/*.key
+nginx/certs/.htpasswd
+
+# Backups & logs
+backups/
+*.log

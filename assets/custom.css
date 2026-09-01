@@ -1,0 +1,27 @@
+/* =============================================================================
+   NOC enterprise monitoring wall - custom Dashy theme overrides
+   Loaded via appConfig.customCss (inline) and available here for larger edits.
+   Mount into Dashy and reference from conf.yml if you outgrow inline CSS.
+   ========================================================================== */
+
+:root {
+  --primary: #00e676;              /* healthy / accent green            */
+  --background: #0b0f14;           /* deep NOC background               */
+  --background-darker: #070a0e;
+  --curve-factor: 8px;
+  --item-group-background: #10161d;
+  --item-background: #141c25;
+}
+
+/* Traffic-light status dots produced by statusCheck */
+.status-indicator.success { background: #00e676 !important; } /* Green  */
+.status-indicator.warning { background: #ffd54f !important; } /* Yellow */
+.status-indicator.error,
+.status-indicator.critical { background: #ff5252 !important; } /* Red   */
+
+/* Larger, TV-legible typography */
+body { font-size: 16px; }
+.item-group-heading { letter-spacing: .5px; text-transform: uppercase; }
+
+/* Remove hover animations that are wasted on a wall display */
+.item:hover { transform: none !important; }

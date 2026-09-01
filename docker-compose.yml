@@ -1,0 +1,94 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Dashy - the dashboard engine that renders all NOC signage pages/widgets.
+  # ---------------------------------------------------------------------------
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: dashy
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - ./dashy/conf.yml:/app/user-data/conf.yml:ro
+      - ./dashy/pages:/app/user-data/pages:ro
+      - ./assets:/app/user-data/item-icons/assets:ro
+    environment:
+      - NODE_ENV=production
+      - UID=1000
+      - GID=1000
+    healthcheck:
+      # Dashy ships a small health script; fall back to a plain HTTP probe.
+      test: ["CMD", "node", "/app/services/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Nginx - TLS termination (HTTPS only), reverse proxy, /health endpoint and
+  # the kiosk rotation wrapper that cycles through the four Dashy pages.
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      dashy:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./assets:/usr/share/nginx/html/assets:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Watchtower - automatic container image updates on a nightly schedule.
+  # ---------------------------------------------------------------------------
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Run every night at 04:00 (cron: sec min hour dom mon dow).
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_LABEL_ENABLE=false
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_ROLLING_RESTART=true
+      - TZ=${TZ:-Europe/Berlin}
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  signage:
+    driver: bridge

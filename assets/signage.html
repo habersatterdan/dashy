@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>NOC Signage Wall</title>
+  <style>
+    :root { --bg:#0b0f14; --fg:#e6edf3; --accent:#00e676; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; background:var(--bg); color:var(--fg);
+      font-family:"Segoe UI", system-ui, sans-serif; overflow:hidden;
+      cursor:none; }                       /* hide mouse cursor */
+    #stage { position:absolute; inset:0; transition:transform .5s ease; }
+    iframe { width:100%; height:100%; border:0; display:block; background:var(--bg); }
+    /* Top status bar with page name + clock */
+    #bar { position:fixed; top:0; left:0; right:0; height:34px; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px);
+      font-size:14px; letter-spacing:.5px; }
+    #page { color:var(--accent); font-weight:600; text-transform:uppercase; }
+    #dots span { display:inline-block; width:8px; height:8px; margin:0 3px;
+      border-radius:50%; background:#33414f; }
+    #dots span.on { background:var(--accent); }
+    #clock { font-variant-numeric:tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <div id="page">Operations</div>
+    <div id="dots"></div>
+    <div id="clock">--:--:--</div>
+  </div>
+  <div id="stage"><iframe id="frame" src="/" title="dashboard"></iframe></div>
+
+  <script>
+    // -----------------------------------------------------------------------
+    // NOC signage kiosk controller
+    //   * rotates the 4 Dashy pages every ROTATE_MS
+    //   * full page reload every RELOAD_MS (idle recovery / fresh data)
+    //   * burn-in prevention via periodic 1px stage shift
+    //   * watchdog reload if a frame fails to load
+    // Config is overridable via query string: ?rotate=30&reload=300
+    // -----------------------------------------------------------------------
+    const qs = new URLSearchParams(location.search);
+    const ROTATE_MS = (parseInt(qs.get('rotate'), 10) || 30) * 1000;   // 30s
+    const RELOAD_MS = (parseInt(qs.get('reload'), 10) || 300) * 1000;  // 5min
+    const SHIFT_MS  = 90 * 1000;                                       // burn-in
+
+    const PAGES = [
+      { name: 'Operations', url: '/' },
+      { name: 'Network',    url: '/network' },
+      { name: 'Security',   url: '/security' },
+      { name: 'Executive',  url: '/executive' },
+    ];
+
+    const frame = document.getElementById('frame');
+    const stage = document.getElementById('stage');
+    const pageEl = document.getElementById('page');
+    const dotsEl = document.getElementById('dots');
+
+    PAGES.forEach(() => dotsEl.insertAdjacentHTML('beforeend', '<span></span>'));
+    const dots = [...dotsEl.children];
+
+    let idx = 0;
+    function show(i) {
+      idx = (i + PAGES.length) % PAGES.length;
+      frame.src = PAGES[idx].url;
+      pageEl.textContent = PAGES[idx].name;
+      dots.forEach((d, n) => d.classList.toggle('on', n === idx));
+    }
+    show(0);
+
+    // Page rotation.
+    setInterval(() => show(idx + 1), ROTATE_MS);
+
+    // Full reload keeps memory clean and recovers from any stalled state.
+    setTimeout(() => location.reload(), RELOAD_MS);
+
+    // Burn-in prevention: nudge the whole stage by up to a couple of pixels.
+    let s = 0;
+    setInterval(() => {
+      s = (s + 1) % 4;
+      const dx = [0, 1, 0, -1][s], dy = [0, 1, 0, -1][s];
+      stage.style.transform = `translate(${dx}px, ${dy}px)`;
+    }, SHIFT_MS);
+
+    // Clock.
+    setInterval(() => {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString('en-GB');
+    }, 1000);
+
+    // Watchdog: if a frame does not signal load within 20s, reload it.
+    let wd;
+    function armWatchdog() {
+      clearTimeout(wd);
+      wd = setTimeout(() => frame.src = PAGES[idx].url, 20000);
+    }
+    frame.addEventListener('load', () => clearTimeout(wd));
+    setInterval(armWatchdog, ROTATE_MS);
+  </script>
+</body>
+</html>

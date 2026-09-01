@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+# systemd --user service: starts the Chromium kiosk after the desktop session.
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp dashy-kiosk.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now dashy-kiosk.service
+#   sudo loginctl enable-linger "$USER"   # start at boot without a login
+# -----------------------------------------------------------------------------
+[Unit]
+Description=NOC Signage Chromium Kiosk
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=SIGNAGE_URL=https://localhost/signage/
+ExecStartPre=/bin/sleep 15
+ExecStart=%h/dashy/kiosk/kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
