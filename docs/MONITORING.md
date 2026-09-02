@@ -109,6 +109,53 @@ from `.env`. Refresh it with a cron/sidecar since Graph tokens are short-lived.
         url: https://firewall.example.local
 ```
 
+## Cisco Catalyst Center (DNA Center) — separate API key
+
+Catalyst Center uses a two-step token flow (the token is your "API key" and
+expires, so it must be refreshed):
+
+```bash
+# 1) Get an X-Auth-Token (valid ~1 hour) using a read-only API user:
+TOKEN=$(curl -sk -u "apiuser:apipass" -X POST \
+  https://dnac.example.local/dna/system/api/v1/auth/token | jq -r .Token)
+
+# 2) Use it against any intent API, e.g. overall network health:
+curl -sk -H "X-Auth-Token: $TOKEN" \
+  https://dnac.example.local/dna/intent/api/v1/network-health
+```
+
+Dashy's `api-response` widget only sends a *static* header, so either:
+- paste a fresh token into `network.yml` (fine for a quick demo), **or**
+- run a tiny refresher (cron every 30 min) that writes the current token into
+  the config and `docker compose restart dashy`, **or**
+- expose the data through Grafana (Cisco Catalyst Center has a Grafana
+  data source / API) and iframe the panel — least maintenance for a wall.
+
+Create a dedicated **read-only API user** in Catalyst Center; never use admin.
+
+## Cisco SD-WAN (Catalyst SD-WAN / vManage) — separate credentials
+
+vManage uses a session cookie + XSRF token rather than a bearer key:
+
+```bash
+# 1) Log in -> JSESSIONID cookie
+curl -skc cookies.txt -X POST https://vmanage.example.local/j_security_check \
+  --data "j_username=apiuser&j_password=apipass"
+
+# 2) Get an XSRF token for subsequent calls
+curl -skb cookies.txt https://vmanage.example.local/dataservice/client/token -o xsrf.txt
+
+# 3) Query device/tunnel status
+curl -skb cookies.txt -H "X-XSRF-TOKEN: $(cat xsrf.txt)" \
+  https://vmanage.example.local/dataservice/device
+```
+
+Because of the cookie flow, the cleanest wall integration is **Grafana**
+(Cisco provides SD-WAN dashboards) embedded as an iframe, or a small local
+proxy that holds the session and exposes a simple JSON endpoint for the
+`api-response` widget. Use a **separate, read-only** API account per system so
+each key can be rotated/revoked independently.
+
 ## Weather + Clock
 
 ```yaml

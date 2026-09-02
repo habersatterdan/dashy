@@ -1,0 +1,57 @@
+# =============================================================================
+# PAGE 5 - PROVIDER & STÖRUNGEN (Cloud/SaaS status + provider outages)
+# Lean setup: only the providers actually in use. Add/remove feeds as needed.
+# Most Statuspage-based services expose /history.atom or /history.rss.
+# =============================================================================
+pageInfo:
+  title: Störungen
+
+sections:
+  - name: Microsoft Cloud
+    icon: si-microsoft
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://status.office365.com/api/feed/rss
+          limit: 6
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://azurestatuscdn.azureedge.net/en-us/status/feed/
+          limit: 6
+
+  - name: Weitere Dienste
+    icon: fas fa-cloud
+    displayData:
+      cols: 2
+    widgets:
+      # Cisco Webex - passt zur Cisco-Landschaft (entfernen falls ungenutzt).
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://status.webex.com/history.atom
+          limit: 5
+      # Cloudflare - nur behalten, falls ihr Cloudflare nutzt.
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://www.cloudflarestatus.com/history.atom
+          limit: 5
+
+  - name: Provider / ISP Störungen
+    icon: fas fa-triangle-exclamation
+    items:
+      # Kein sauberer RSS-Feed - daher Link-/Status-Kacheln (statusCheck = Ampel).
+      - title: Allestörungen
+        description: Crowd-Störungskarte (Telekom, Vodafone, O2, A1 ...)
+        icon: fas fa-signal
+        url: https://allestoerungen.de
+        target: newtab
+      - title: WAN / SD-WAN Monitoring
+        description: Eigene Circuit-Überwachung
+        icon: fas fa-globe
+        url: https://wan-monitor.example.local
+        statusCheck: true

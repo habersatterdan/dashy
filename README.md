@@ -24,6 +24,7 @@ Raspberry Pi 5
 | **Network** | Catalyst Center, Cisco ISE, Cisco Secure Access, Firewall, WAN monitoring, Grafana iframe, reachability |
 | **Security** | MSRC / Microsoft Security, Cisco Security advisories, Heise Security, BSI, general security news (RSS) |
 | **Executive** | System availability (Grafana), active alerts (Zabbix), service health, company KPIs |
+| **Störungen** | M365 & Azure status, Cisco Webex, Cloudflare, provider/ISP outage links (RSS) |
 
 ## Quick start
 

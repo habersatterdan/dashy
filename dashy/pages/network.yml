@@ -42,6 +42,34 @@ sections:
         url: https://wan-monitor.example.local
         statusCheck: true
 
+  - name: Catalyst Center & SD-WAN (API)
+    icon: si-cisco
+    widgets:
+      # --- Cisco Catalyst Center (DNA Center) network health via REST API ----
+      # Auth: POST /dna/system/api/v1/auth/token with Basic (user:pass) returns
+      # an X-Auth-Token. Dashy's api-response widget sends a static header, so
+      # supply a currently-valid token (rotate via a small cron/sidecar) OR read
+      # the value through your own proxy. See docs/MONITORING.md for the flow.
+      - type: api-response
+        updateInterval: 120
+        options:
+          url: https://dnac.example.local/dna/intent/api/v1/network-health
+          method: GET
+          headers:
+            X-Auth-Token: REPLACE_WITH_CATALYST_XAUTH_TOKEN
+      # --- Cisco SD-WAN (Catalyst SD-WAN / vManage) device status ------------
+      # Auth: session cookie (JSESSIONID) + XSRF token from /j_security_check.
+      # Easiest robust path is to surface vManage data via Grafana (below) and
+      # iframe that; the direct call here needs a valid session cookie header.
+      - type: api-response
+        updateInterval: 120
+        options:
+          url: https://vmanage.example.local/dataservice/device
+          method: GET
+          headers:
+            Cookie: JSESSIONID=REPLACE_WITH_VMANAGE_SESSION
+            X-XSRF-TOKEN: REPLACE_WITH_VMANAGE_XSRF
+
   - name: Live Network Health (Grafana)
     icon: si-grafana
     widgets:

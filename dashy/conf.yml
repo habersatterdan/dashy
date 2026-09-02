@@ -16,6 +16,8 @@ pageInfo:
       path: /security
     - title: Executive
       path: /executive
+    - title: Störungen
+      path: /status
   footerText: ''
 
 # -----------------------------------------------------------------------------
@@ -58,6 +60,8 @@ pages:
     path: pages/security.yml
   - name: Executive
     path: pages/executive.yml
+  - name: Störungen
+    path: pages/status.yml
 
 # =============================================================================
 # PAGE 1 - OPERATIONS
