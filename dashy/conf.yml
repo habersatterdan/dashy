@@ -1,0 +1,152 @@
+# =============================================================================
+# NOC / Datacenter Digital Signage - Main Dashy configuration
+# Page 1 (Operations) lives here; pages 2-4 are loaded from ./pages/*.yml
+# Docs: https://dashy.to/docs/configuring
+# =============================================================================
+
+pageInfo:
+  title: NOC Signage
+  description: Datacenter Operations Wall
+  navLinks:
+    - title: Operations
+      path: /
+    - title: Network
+      path: /network
+    - title: Security
+      path: /security
+    - title: Executive
+      path: /executive
+  footerText: ''
+
+# -----------------------------------------------------------------------------
+# Global application behaviour - tuned for an unattended kiosk wall display.
+# -----------------------------------------------------------------------------
+appConfig:
+  theme: nord-frost           # dark, high-contrast NOC theme
+  layout: auto
+  iconSize: medium
+  language: en
+  statusCheck: true           # periodic up/down checks -> green/yellow/red dots
+  statusCheckInterval: 60     # seconds between health checks
+  disableConfiguration: true  # hide the config editor on display screens
+  hideComponents:
+    hideSettings: true        # hide settings cog on kiosk pages
+    hideFooter: true
+    hideSearch: true
+  enableErrorReporting: false
+  routingMode: history
+  auth:
+    # Display screens are read-only and unauthenticated. Admin/edit is guarded
+    # at the reverse proxy (/admin, see nginx) AND by disableConfiguration above.
+    # To require login for editing instead, populate the users list below and
+    # set enableGuestAccess: true so screens stay read-only without a login.
+    enableGuestAccess: true
+    users: []
+  # Custom CSS + JS injected into every page (NOC styling, rotation, clock,
+  # burn-in prevention, idle recovery, auto-reload). See assets/.
+  customCss: >
+    :root { --primary: #00e676; --background: #0b0f14; }
+  customColors: {}
+
+# -----------------------------------------------------------------------------
+# Multi-page registration. Each entry is a separate URL served by Dashy.
+# -----------------------------------------------------------------------------
+pages:
+  - name: Network
+    path: pages/network.yml
+  - name: Security
+    path: pages/security.yml
+  - name: Executive
+    path: pages/executive.yml
+
+# =============================================================================
+# PAGE 1 - OPERATIONS
+# =============================================================================
+sections:
+  - name: Infrastructure Monitoring
+    icon: fas fa-server
+    displayData:
+      sortBy: default
+      cols: 2
+    widgets:
+      # --- Zabbix problem feed (live) -------------------------------------
+      - type: zabbix-problems
+        updateInterval: 60
+        options:
+          # Replace with your Zabbix front-end URL and an API token.
+          hostname: https://zabbix.example.local
+          apiToken: REPLACE_WITH_ZABBIX_API_TOKEN
+          count: 12
+      # --- Generic REST example (PRTG / CheckMK / Grafana alerting) --------
+      - type: health-check
+        updateInterval: 120
+        options:
+          urls:
+            - label: Zabbix Server
+              url: https://zabbix.example.local
+            - label: PRTG Core
+              url: https://prtg.example.local
+            - label: CheckMK
+              url: https://checkmk.example.local/mysite
+
+  - name: Operations Services
+    icon: fas fa-heartbeat
+    items:
+      - title: Microsoft 365 Health
+        description: Service health dashboard
+        icon: si-microsoftoffice
+        url: https://admin.microsoft.com/Adminportal/Home#/servicehealth
+        statusCheck: true
+        target: newtab
+      - title: M365 Service Status
+        description: Public status page
+        icon: si-microsoft
+        url: https://status.office365.com
+        statusCheck: true
+      - title: Internal Status Page
+        description: Company status portal
+        icon: fas fa-signal
+        url: https://status.example.local
+        statusCheck: true
+      - title: Backup Status
+        description: Veeam / backup console
+        icon: fas fa-database
+        url: https://backup.example.local
+        statusCheck: true
+      - title: VMware vCenter
+        description: Virtualization health
+        icon: si-vmware
+        url: https://vcenter.example.local/ui
+        statusCheck: true
+      - title: Hyper-V (SCVMM)
+        description: Hyper-V cluster
+        icon: si-microsoft
+        url: https://scvmm.example.local
+        statusCheck: true
+      - title: SQL Server
+        description: Database availability
+        icon: si-microsoftsqlserver
+        url: https://sql-monitor.example.local
+        statusCheck: true
+
+  - name: At a glance
+    icon: fas fa-clock
+    displayData:
+      cols: 3
+    widgets:
+      - type: clock
+        options:
+          timeZone: Europe/Berlin
+          format: en-GB
+          hideDate: false
+      - type: weather
+        updateInterval: 600
+        options:
+          # OpenWeatherMap - replace apiKey and city.
+          apiKey: REPLACE_WITH_OPENWEATHERMAP_KEY
+          city: Vienna
+          units: metric
+      # Floor / room status - static markup widget, edit to reflect your DC.
+      - type: iframe
+        options:
+          url: /assets/floor-status.html

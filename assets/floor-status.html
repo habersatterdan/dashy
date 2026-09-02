@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Floor Status</title>
+  <style>
+    body { margin:0; font-family:system-ui, sans-serif; background:#0b0f14; color:#e6edf3; }
+    h3 { margin:8px 12px; font-size:14px; letter-spacing:.5px; color:#9fb0c0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+      gap:8px; padding:0 12px 12px; }
+    .room { padding:10px; border-radius:8px; text-align:center; font-size:13px;
+      border:1px solid #1c2733; }
+    .ok   { background:#0f2e1c; color:#00e676; }   /* Green  = Healthy  */
+    .warn { background:#332a0d; color:#ffd54f; }   /* Yellow = Warning  */
+    .crit { background:#331414; color:#ff5252; }   /* Red    = Critical */
+    .dot { display:block; font-size:11px; opacity:.8; margin-top:2px; }
+  </style>
+</head>
+<body>
+  <h3>DATACENTER FLOOR STATUS</h3>
+  <div class="grid">
+    <div class="room ok">DC-A1<span class="dot">OK · 21°C</span></div>
+    <div class="room ok">DC-A2<span class="dot">OK · 22°C</span></div>
+    <div class="room warn">DC-B1<span class="dot">Temp 27°C</span></div>
+    <div class="room ok">DC-B2<span class="dot">OK · 21°C</span></div>
+    <div class="room crit">UPS-2<span class="dot">On Battery</span></div>
+    <div class="room ok">MDF<span class="dot">OK</span></div>
+    <div class="room ok">IDF-1<span class="dot">OK</span></div>
+    <div class="room ok">IDF-2<span class="dot">OK</span></div>
+  </div>
+</body>
+</html>

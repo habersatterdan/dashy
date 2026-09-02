@@ -1,0 +1,43 @@
+# =============================================================================
+# PAGE 3 - SECURITY (RSS driven)
+# =============================================================================
+pageInfo:
+  title: Security
+
+sections:
+  - name: Threat & Vendor Feeds
+    icon: fas fa-shield-virus
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://msrc.microsoft.com/blog/feed/
+          limit: 6
+          apiKey: ''
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml
+          limit: 6
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://www.heise.de/security/rss/news-atom.xml
+          limit: 6
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          # BSI (German Federal Office for Information Security) news feed.
+          rssUrl: https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed/RSSNewsfeed.xml
+          limit: 6
+
+  - name: General Security News
+    icon: fas fa-newspaper
+    widgets:
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://feeds.feedburner.com/TheHackersNews
+          limit: 8
