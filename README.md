@@ -69,3 +69,76 @@ docs/                      INSTALL, UPDATE, BACKUP, TROUBLESHOOTING, MONITORING
 - **/health** endpoint for Docker health checks and external monitoring.
 
 > Replace every `REPLACE_WITH_*` token and every `*.example.local` URL before going live.
+
+## Rotation & pages
+
+- Pages rotate **every 30 seconds**; the whole wall reloads **every 5 minutes**.
+- Override without editing files via query string:
+  `https://<host>/signage/?rotate=45&reload=600` (45 s rotation, 10 min reload).
+- Defaults live in `assets/signage.html` (`ROTATE_MS` / `RELOAD_MS`).
+
+### Remove a page from the rotation
+
+Edit the `PAGES` array in `assets/signage.html` and delete the line for the page:
+
+```js
+const PAGES = [
+  { name: 'Operations', url: '/' },
+  { name: 'Network',    url: '/network' },
+  { name: 'Security',   url: '/security' },
+  { name: 'Executive',  url: '/executive' },
+  { name: 'Störungen',  url: '/status' },   // delete this line to drop it
+];
+```
+
+To also remove it from Dashy's menu, delete its entry under `pages:` and
+`navLinks:` in `dashy/conf.yml`. Changes to `signage.html` take effect on the
+next reload; Dashy changes need `docker compose restart dashy`.
+
+## Installing an internal (CA-issued) TLS certificate
+
+The installer creates a self-signed certificate, which browsers flag as
+untrusted. To use a certificate from your internal PKI/CA, place the PEM files
+at `nginx/certs/signage.crt` (server cert, with any intermediate CA appended
+below it) and `nginx/certs/signage.key` (unencrypted private key), then
+`docker compose restart nginx`. Filenames/paths are fixed — no Nginx edit needed.
+
+**From a `.pfx` / `.p12`** (typical Windows CA export) — split it into PEM:
+
+```bash
+cd nginx/certs
+openssl pkcs12 -in cert.pfx -nocerts -nodes -out signage.key   # private key
+openssl pkcs12 -in cert.pfx -clcerts -nokeys -out signage.crt  # server cert
+openssl pkcs12 -in cert.pfx -cacerts -nokeys -out chain.crt && cat chain.crt >> signage.crt  # append CA chain
+chmod 600 signage.key && chmod 644 signage.crt
+cd ../.. && docker compose restart nginx
+```
+
+**From existing `.crt` + `.key`** — copy them to `signage.crt` / `signage.key`
+(append the intermediate CA to `signage.crt`), fix permissions as above, and
+restart nginx.
+
+Verify:
+
+```bash
+echo | openssl s_client -connect localhost:443 2>/dev/null | openssl x509 -noout -subject -issuer -dates
+```
+
+Notes: Nginx needs **PEM**, not PFX. The key must be **passphrase-free**
+(`-nodes` strips it). In `signage.crt` the **server cert comes first**, then the
+intermediate/CA. Include the access IP as a SAN in the cert if screens connect
+by IP rather than hostname. Domain-joined PCs trust an internal-CA cert
+automatically, so the browser warning disappears.
+
+## Corporate network notes (TLS-inspection proxy)
+
+Behind an SSL-inspecting proxy (e.g. Cisco Secure Access), install the corporate
+root + intermediate CAs on the Pi so `git` and Docker pulls work:
+
+```bash
+sudo cp corp-root.crt corp-sub.crt /usr/local/share/ca-certificates/  # extension MUST be .crt
+sudo update-ca-certificates                                            # expect "N added"
+```
+
+`.cer` files are ignored — rename them to `.crt` first. Never disable TLS
+verification (`git config http.sslVerify false`).
