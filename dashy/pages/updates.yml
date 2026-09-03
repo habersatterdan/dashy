@@ -1,0 +1,18 @@
+# =============================================================================
+# UPDATES - Software-Release-Ankündigungen (RSS)
+# Devolutions PowerShell Universal - Announcement forum feed
+# =============================================================================
+pageInfo:
+  title: Updates
+
+sections:
+  - name: PowerShell Universal
+    icon: fas fa-rotate
+    displayData:
+      cols: 1
+    widgets:
+      - type: rss-feed
+        updateInterval: 3600
+        options:
+          rssUrl: https://forum-api.devolutions.net/api/forums/208/topics/rss
+          limit: 8
