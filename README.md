@@ -31,8 +31,8 @@ Raspberry Pi 5
 ```bash
 git clone <this-repo> ~/dashy && cd ~/dashy
 sudo ./scripts/install.sh              # installs docker, certs, stack, kiosk, backup cron
-cp .env.example .env                   # then edit placeholders
-$EDITOR dashy/conf.yml dashy/pages/*.yml   # replace REPLACE_WITH_* / example.local
+cp .env.example .env                   # pick a profile (DASHY_PROFILE=enterprise|homelab), then edit
+$EDITOR profiles/$DASHY_PROFILE/conf.yml profiles/$DASHY_PROFILE/pages/*.yml   # replace DEINE-*/REPLACE_WITH_*/example.local
 docker compose restart dashy
 ```
 
@@ -43,15 +43,34 @@ opens it automatically at boot).
 
 ```
 docker-compose.yml         Dashy + Nginx + Watchtower (health checks, restart policies)
-.env.example               All configurable placeholders (copy to .env)
-dashy/conf.yml             Page 1 (Operations) + global app config
-dashy/pages/*.yml          Pages 2-4 (Network, Security, Executive)
+.env.example               All configurable placeholders (copy to .env), incl. DASHY_PROFILE
+profiles/<name>/conf.yml   Page 1 (Übersicht/Operations) + global app config, per profile
+profiles/<name>/pages/     Additional pages, per profile (see "Profiles" below)
 nginx/                     nginx.conf, conf.d/dashy.conf, certs/generate-cert.sh
 assets/                    signage.html (rotation kiosk wrapper), custom.css, tiles
 kiosk/                     kiosk.sh + systemd units (stack@boot, chromium kiosk)
 scripts/                   install.sh, backup.sh, restore.sh
 docs/                      INSTALL, UPDATE, BACKUP, TROUBLESHOOTING, MONITORING
 ```
+
+## Profiles
+
+The dashboard's content lives entirely under `profiles/<name>/` (a `conf.yml`
+plus a `pages/` folder) — the rest of the stack (Docker, Nginx, kiosk,
+backup) is content-agnostic and works with any profile. Pick one via
+`DASHY_PROFILE` in `.env` (default: `enterprise`).
+
+- **`enterprise`** — the original NOC/datacenter wall: Zabbix, M365, Cisco
+  Catalyst Center/ISE, VMware/Hyper-V, MSRC/BSI/CISA advisories. Built for a
+  corporate NOC screen or a Teams Room / Yealink MeetingBoard.
+- **`homelab`** — a self-hosted starter: Proxmox, Grafana, Prometheus,
+  Uptime Kuma, Pi-hole, Nextcloud, Vaultwarden, Gitea, Immich, Paperless-ngx,
+  Home Assistant, plus a News page of real public RSS feeds (Heise, Golem,
+  r/homelab, r/selfhosted, GitHub/Cloudflare status). Every service URL is a
+  `DEINE-*-URL` placeholder — swap in your own hosts before going live.
+
+Add your own environment by copying an existing `profiles/<name>/` folder,
+editing `conf.yml`/`pages/*.yml`, and setting `DASHY_PROFILE=<name>`.
 
 ## Documentation
 
@@ -92,7 +111,7 @@ const PAGES = [
 ```
 
 To also remove it from Dashy's menu, delete its entry under `pages:` and
-`navLinks:` in `dashy/conf.yml`. Changes to `signage.html` take effect on the
+`navLinks:` in `profiles/<name>/conf.yml`. Changes to `signage.html` take effect on the
 next reload; Dashy changes need `docker compose restart dashy`.
 
 ## Installing an internal (CA-issued) TLS certificate

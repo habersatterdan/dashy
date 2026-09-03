@@ -9,8 +9,8 @@ services:
     expose:
       - "8080"
     volumes:
-      - ./dashy/conf.yml:/app/user-data/conf.yml:ro
-      - ./dashy/pages:/app/user-data/pages:ro
+      - ./profiles/${DASHY_PROFILE:-enterprise}/conf.yml:/app/user-data/conf.yml:ro
+      - ./profiles/${DASHY_PROFILE:-enterprise}/pages:/app/user-data/pages:ro
       - ./assets:/app/user-data/item-icons/assets:ro
       # Corporate CA bundle so Dashy can fetch RSS feeds behind an
       # SSL-inspection proxy (Cisco Secure Access etc.). Put your CA chain at
@@ -57,7 +57,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./assets:/usr/share/nginx/html/assets:ro
-      - ./dashy/pages:/usr/share/nginx/html/pages:ro
+      - ./profiles/${DASHY_PROFILE:-enterprise}/pages:/usr/share/nginx/html/pages:ro
       # Screenshots produced by the "shotter" service, served at /shots/*.png
       - ./shots:/usr/share/nginx/html/shots:ro
     healthcheck:

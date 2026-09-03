@@ -1,0 +1,57 @@
+# =============================================================================
+# APPS - selbst gehostete Dienste
+# =============================================================================
+pageInfo:
+  title: Apps
+
+sections:
+  - name: Produktivität
+    icon: fas fa-briefcase
+    displayData:
+      cols: 3
+    items:
+      - title: Nextcloud
+        icon: si-nextcloud
+        url: https://DEINE-NEXTCLOUD-URL
+        statusCheck: true
+      - title: Vaultwarden
+        icon: fas fa-key
+        url: https://DEINE-VAULTWARDEN-URL
+        statusCheck: true
+      - title: Gitea
+        icon: fas fa-code-branch
+        url: https://DEINE-GITEA-URL
+        statusCheck: true
+
+  - name: Medien & Dokumente
+    icon: fas fa-photo-film
+    displayData:
+      cols: 3
+    items:
+      - title: Immich
+        icon: fas fa-images
+        url: https://DEINE-IMMICH-URL
+        statusCheck: true
+      - title: Paperless-ngx
+        icon: fas fa-file-lines
+        url: https://DEINE-PAPERLESS-URL
+        statusCheck: true
+      - title: Jellyfin
+        icon: si-jellyfin
+        url: https://DEIN-JELLYFIN
+        statusCheck: true
+
+  - name: Automatisierung
+    icon: fas fa-house-signal
+    displayData:
+      cols: 2
+    items:
+      - title: Home Assistant
+        icon: fas fa-house-user
+        url: https://DEINE-HOMEASSISTANT-URL
+        statusCheck: true
+      - title: Eigene App
+        description: Platzhalter - durch deinen Dienst ersetzen
+        icon: fas fa-cube
+        url: https://DEINE-EIGENE-APP
+        statusCheck: true

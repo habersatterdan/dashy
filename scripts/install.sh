@@ -46,5 +46,5 @@ CRON_LINE="30 2 * * * ${REPO_DIR}/scripts/backup.sh >> ${REPO_DIR}/backup.log 2>
 
 echo
 echo "==> Done. Signage URL:  https://$(hostname).local/signage/"
-echo "==> IMPORTANT: edit .env and dashy/*.yml to replace the REPLACE_WITH_* placeholders,"
+echo "==> IMPORTANT: edit .env (DASHY_PROFILE) and profiles/$DASHY_PROFILE/*.yml to replace the placeholders,"
 echo "    then run:  docker compose restart dashy"

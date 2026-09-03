@@ -37,11 +37,9 @@ systemd units; and adds the nightly backup cron job.
 Edit the placeholders (`REPLACE_WITH_*`, `*.example.local`):
 
 ```bash
-nano .env
-nano dashy/conf.yml
-nano dashy/pages/network.yml
-nano dashy/pages/security.yml
-nano dashy/pages/executive.yml
+nano .env                                        # pick DASHY_PROFILE (enterprise|homelab)
+nano profiles/$DASHY_PROFILE/conf.yml
+nano profiles/$DASHY_PROFILE/pages/*.yml         # e.g. stoerungen.yml/security.yml/updates.yml (enterprise)
 docker compose restart dashy
 ```
 

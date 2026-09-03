@@ -1,0 +1,64 @@
+# =============================================================================
+# NEWS - öffentliche RSS-Feeds (Homelab/Tech + Cloud-Provider-Status)
+# Alles hier sind echte, öffentlich erreichbare Feeds - kein Login nötig.
+# Weitere Feeds einfach als zusätzliche "type: rss-feed"-Widgets ergänzen.
+# =============================================================================
+pageInfo:
+  title: News
+
+sections:
+  - name: Homelab & Tech
+    icon: fas fa-newspaper
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://www.heise.de/rss/heise-atom.xml
+          limit: 5
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://rss.golem.de/rss.php?feed=RSS2.0
+          limit: 5
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://www.reddit.com/r/homelab/.rss
+          limit: 5
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          rssUrl: https://www.reddit.com/r/selfhosted/.rss
+          limit: 5
+
+  - name: Cloud- / Provider-Status
+    icon: fas fa-cloud
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://www.githubstatus.com/history.atom
+          limit: 4
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://www.cloudflarestatus.com/history.atom
+          limit: 4
+
+  # ---------------------------------------------------------------------------
+  # Platz für weitere Feeds (einkommentieren/anpassen, was ihr braucht).
+  # ---------------------------------------------------------------------------
+  # - name: Weitere Quellen
+  #   icon: fas fa-rss
+  #   displayData:
+  #     cols: 2
+  #   widgets:
+  #     - type: rss-feed
+  #       updateInterval: 900
+  #       options:
+  #         rssUrl: https://example.com/feed
+  #         limit: 5

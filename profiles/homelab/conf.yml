@@ -1,0 +1,86 @@
+# =============================================================================
+# HOMELAB PROFILE - Übersicht
+# Ersetze jedes DEINE-*-URL / example.local durch deine echten Adressen.
+# Seite 1 (Übersicht) liegt hier; Inhaltsseiten kommen aus ./pages/*.yml.
+# =============================================================================
+
+pageInfo:
+  title: Homelab Signage
+  description: Homelab / On-Prem-Dienste auf einen Blick
+
+appConfig:
+  theme: nord-frost
+  routingMode: history
+  layout: auto
+  iconSize: large
+  statusCheck: true
+  statusCheckInterval: 30
+  disableConfiguration: true
+  hideComponents:
+    hideSettings: true
+    hideFooter: true
+  enableErrorReporting: false
+  customCss: >
+    :root { --primary: #00e676; --background: #0b0f14; }
+
+# --- Content pages (each becomes a URL + a nav button) -----------------------
+pages:
+  - name: Apps
+    path: pages/apps.yml
+  - name: News
+    path: pages/news.yml
+
+# =============================================================================
+# PAGE 1 - ÜBERSICHT (Kernsysteme, Netzwerk, Zeit)
+# =============================================================================
+sections:
+  - name: Kernsysteme
+    icon: fas fa-server
+    displayData:
+      cols: 3
+    items:
+      - title: Proxmox
+        icon: si-proxmox
+        url: https://DEINE-PROXMOX-URL:8006
+        statusCheck: false   # Proxmox-Loginseite blockt Cross-Origin-Statuschecks
+      - title: Grafana
+        icon: si-grafana
+        url: https://DEINE-GRAFANA-URL
+        statusCheck: true
+      - title: Prometheus
+        icon: fas fa-fire
+        url: https://DEINE-PROMETHEUS-URL
+        statusCheck: true
+      - title: Uptime Kuma
+        icon: fas fa-check-circle
+        url: https://DEINE-UPTIME-KUMA-URL
+        statusCheck: true
+
+  - name: Netzwerk & Zugriff
+    icon: fas fa-network-wired
+    displayData:
+      cols: 3
+    items:
+      - title: Pi-hole
+        icon: fas fa-shield-virus
+        url: https://DEINE-PIHOLE-URL/admin
+        statusCheck: true
+      - title: Reverse Proxy
+        icon: fas fa-route
+        url: https://DEIN-TRAEFIK-ODER-NPM
+        statusCheck: true
+      - title: VPN / Mesh
+        icon: fas fa-project-diagram
+        url: https://DEIN-VPN-DASHBOARD
+        statusCheck: true
+
+  - name: Zeit
+    icon: fas fa-clock
+    displayData:
+      cols: 1
+    widgets:
+      - type: clock
+        options:
+          timeZone: Europe/Berlin
+          format: de-DE
+          hideDate: false

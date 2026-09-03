@@ -1,6 +1,6 @@
 # Monitoring Integration Examples
 
-Copy these snippets into `dashy/conf.yml` or `dashy/pages/*.yml`. Replace every
+Copy these snippets into `profiles/<name>/conf.yml` or `profiles/<name>/pages/*.yml`. Replace every
 `REPLACE_WITH_*` and `*.example.local` value. Dashy widget reference:
 https://dashy.to/docs/widgets
 
