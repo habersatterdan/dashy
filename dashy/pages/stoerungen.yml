@@ -1,0 +1,39 @@
+# =============================================================================
+# STÖRUNGEN - Cloud/Provider-Status (RSS, kein Login/iframe nötig)
+# =============================================================================
+pageInfo:
+  title: Störungen
+
+sections:
+  - name: Microsoft Cloud
+    icon: si-microsoft
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://status.office365.com/api/feed/rss
+          limit: 4
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://azurestatuscdn.azureedge.net/en-us/status/feed/
+          limit: 4
+
+  - name: Cisco Cloud
+    icon: si-cisco
+    displayData:
+      cols: 2
+    widgets:
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          # Umbrella / Secure Access (SSE)
+          rssUrl: https://status.umbrella.com/history.atom
+          limit: 4
+      - type: rss-feed
+        updateInterval: 300
+        options:
+          rssUrl: https://status.meraki.net/history.atom
+          limit: 4

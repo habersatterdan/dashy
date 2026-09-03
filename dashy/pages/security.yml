@@ -1,43 +1,49 @@
 # =============================================================================
-# PAGE 3 - SECURITY (RSS driven)
+# SECURITY / COMPLIANCE - Advisories & Warnungen (RSS)
+# Behörden-Feeds (BSI, CISA) sind für ISO 27001 / NIS2 besonders relevant.
 # =============================================================================
 pageInfo:
   title: Security
 
 sections:
-  - name: Threat & Vendor Feeds
-    icon: fas fa-shield-virus
+  - name: Behörden (ISO 27001 / NIS2)
+    icon: fas fa-landmark
     displayData:
       cols: 2
     widgets:
       - type: rss-feed
         updateInterval: 900
         options:
-          rssUrl: https://msrc.microsoft.com/blog/feed/
-          limit: 6
-          apiKey: ''
+          # BSI CERT-Bund Sicherheitswarnungen (WID)
+          rssUrl: https://wid.cert-bund.de/content/public/securityAdvisory/rss
+          limit: 4
       - type: rss-feed
         updateInterval: 900
         options:
-          rssUrl: https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml
-          limit: 6
-      - type: rss-feed
-        updateInterval: 900
-        options:
-          rssUrl: https://www.heise.de/security/rss/news-atom.xml
-          limit: 6
-      - type: rss-feed
-        updateInterval: 900
-        options:
-          # BSI (German Federal Office for Information Security) news feed.
-          rssUrl: https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed/RSSNewsfeed.xml
-          limit: 6
+          # CISA (US) Advisories
+          rssUrl: https://www.cisa.gov/cybersecurity-advisories/all.xml
+          limit: 4
 
-  - name: General Security News
-    icon: fas fa-newspaper
+  - name: Hersteller-Advisories
+    icon: fas fa-shield-halved
+    displayData:
+      cols: 3
     widgets:
       - type: rss-feed
         updateInterval: 900
         options:
-          rssUrl: https://feeds.feedburner.com/TheHackersNews
-          limit: 8
+          # Cisco PSIRT
+          rssUrl: https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml
+          limit: 4
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          # Fortinet (Firewall) PSIRT
+          rssUrl: https://filestore.fortinet.com/fortiguard/rss/ir.xml
+          limit: 4
+      - type: rss-feed
+        updateInterval: 900
+        options:
+          # VMware Security
+          rssUrl: https://blogs.vmware.com/security/feed
+          limit: 4
