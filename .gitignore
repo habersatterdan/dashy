@@ -7,3 +7,4 @@ nginx/certs/.htpasswd
 # Backups & logs
 backups/
 *.log
+shots/*.png

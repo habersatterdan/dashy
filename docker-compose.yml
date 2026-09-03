@@ -12,10 +12,17 @@ services:
       - ./dashy/conf.yml:/app/user-data/conf.yml:ro
       - ./dashy/pages:/app/user-data/pages:ro
       - ./assets:/app/user-data/item-icons/assets:ro
+      # Corporate CA bundle so Dashy can fetch RSS feeds behind an
+      # SSL-inspection proxy (Cisco Secure Access etc.). Put your CA chain at
+      # nginx/certs/chain.crt; harmless if absent.
+      - ./nginx/certs:/certs:ro
     environment:
       - NODE_ENV=production
       - UID=1000
       - GID=1000
+      # Node reads extra trusted CAs from here -> fixes "Unable to fetch data"
+      # on HTTPS feeds when a corporate proxy re-signs TLS.
+      - NODE_EXTRA_CA_CERTS=/certs/chain.crt
     healthcheck:
       # Dashy ships a small health script; fall back to a plain HTTP probe.
       test: ["CMD", "node", "/app/services/healthcheck"]
@@ -51,6 +58,8 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./assets:/usr/share/nginx/html/assets:ro
       - ./dashy/pages:/usr/share/nginx/html/pages:ro
+      # Screenshots produced by the "shotter" service, served at /shots/*.png
+      - ./shots:/usr/share/nginx/html/shots:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
@@ -82,6 +91,50 @@ services:
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
       - TZ=${TZ:-Europe/Berlin}
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Shotter - periodic headless-Chromium screenshots of sites that refuse
+  # iframe embedding (Downdetector/Allestörungen etc.). Images land in ./shots
+  # and are served by Nginx at /shots/<name>.png for display on a Dashy page.
+  # Configure targets as "name=url" entries in SHOT_TARGETS (space-separated).
+  # ---------------------------------------------------------------------------
+  shotter:
+    image: zenika/alpine-chrome:124
+    container_name: shotter
+    restart: unless-stopped
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /shots
+        while true; do
+          for t in $${SHOT_TARGETS}; do
+            name="$${t%%=*}"; url="$${t#*=}"
+            echo "shooting $$name -> $$url"
+            chromium-browser --headless=new --no-sandbox --disable-gpu \
+              --hide-scrollbars --ignore-certificate-errors \
+              --window-size=1920,1080 --screenshot=/shots/$$name.png "$$url" \
+              || echo "failed: $$name"
+          done
+          sleep $${SHOT_INTERVAL:-300}
+        done
+    environment:
+      - SHOT_INTERVAL=300
+      # name=url  (umlaut domains as punycode). Add more, space-separated.
+      - SHOT_TARGETS=allestoerungen=https://xn--allestrungen-9ib.de/
+      # If the container must reach the internet through a corporate proxy,
+      # uncomment and set these (and add --proxy-server in command if needed):
+      # - HTTPS_PROXY=http://proxy.example.local:8080
+      # - HTTP_PROXY=http://proxy.example.local:8080
+    volumes:
+      - ./shots:/shots
     networks:
       - signage
     logging:
