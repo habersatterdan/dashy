@@ -50,6 +50,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./assets:/usr/share/nginx/html/assets:ro
+      - ./dashy/pages:/usr/share/nginx/html/pages:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
