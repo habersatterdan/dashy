@@ -31,8 +31,6 @@ pages:
     path: pages/stoerungen.yml
   - name: Security
     path: pages/security.yml
-  - name: Provider
-    path: pages/provider.yml
   - name: Updates
     path: pages/updates.yml
 

@@ -128,7 +128,8 @@ services:
     environment:
       - SHOT_INTERVAL=300
       # name=url  (umlaut domains as punycode). Add more, space-separated.
-      - SHOT_TARGETS=allestoerungen=https://xn--allestrungen-9ib.de/
+      # Beispiel: intern=https://intranet.example.local  (Allestörungen entfernt: Bot-Schutz)
+      - SHOT_TARGETS=
       # If the container must reach the internet through a corporate proxy,
       # uncomment and set these (and add --proxy-server in command if needed):
       # - HTTPS_PROXY=http://proxy.example.local:8080

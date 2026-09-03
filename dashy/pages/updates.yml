@@ -1,18 +1,47 @@
 # =============================================================================
 # UPDATES - Software-Release-Ankündigungen (RSS)
-# Devolutions PowerShell Universal - Announcement forum feed
+#
+# Devolutions-Forum-Muster:
+#   https://forum-api.devolutions.net/api/forums/<FORUM-ID>/topics/rss
+# Die <FORUM-ID> steht in der Forum-URL, z. B.
+#   forum.devolutions.net/forums/208/devolutions-powershell-universal--announcement
+#                                 ^^^
+# So kannst du jedes Announcement-Unterforum (RDM, Devolutions Server,
+# Password Hub ...) als eigenen Feed ergänzen.
 # =============================================================================
 pageInfo:
   title: Updates
 
 sections:
-  - name: PowerShell Universal
+  - name: Devolutions
     icon: fas fa-rotate
     displayData:
-      cols: 1
+      cols: 2
     widgets:
+      # PowerShell Universal - Announcement (Forum 208)
       - type: rss-feed
         updateInterval: 3600
         options:
           rssUrl: https://forum-api.devolutions.net/api/forums/208/topics/rss
-          limit: 8
+          limit: 5
+      # Weiteres Devolutions-Announcement-Forum: ID unten eintragen
+      # - type: rss-feed
+      #   updateInterval: 3600
+      #   options:
+      #     rssUrl: https://forum-api.devolutions.net/api/forums/<ID>/topics/rss
+      #     limit: 5
+
+  # ---------------------------------------------------------------------------
+  # Platz für weitere Produkt-Update-Feeds (einkommentieren, was ihr einsetzt).
+  # On-Prem-Quellen (Windows Server, SQL, Veeam ...) kommen hier später dazu.
+  # ---------------------------------------------------------------------------
+  # - name: Hersteller-Releases
+  #   icon: fas fa-box
+  #   displayData:
+  #     cols: 2
+  #   widgets:
+  #     - type: rss-feed
+  #       updateInterval: 3600
+  #       options:
+  #         rssUrl: https://blogs.vmware.com/security/feed
+  #         limit: 4
