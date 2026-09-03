@@ -48,4 +48,4 @@ sections:
       # Placeholder KPI tiles. Point these iframes at your BI/Grafana panels.
       - type: iframe
         options:
-          url: /assets/kpi-placeholder.html
+          url: /tiles/kpi-placeholder.html

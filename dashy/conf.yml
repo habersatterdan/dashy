@@ -153,4 +153,4 @@ sections:
       # Floor / room status - static markup widget, edit to reflect your DC.
       - type: iframe
         options:
-          url: /assets/floor-status.html
+          url: /tiles/floor-status.html
