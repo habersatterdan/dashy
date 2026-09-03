@@ -10,7 +10,6 @@ pageInfo:
 
 appConfig:
   theme: nord-frost
-  routingMode: history
   layout: auto
   iconSize: large
   statusCheck: true

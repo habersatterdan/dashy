@@ -12,7 +12,6 @@ pageInfo:
 
 appConfig:
   theme: nord-frost
-  routingMode: history        # required so /security etc. resolve as paths
   layout: auto
   iconSize: large             # big, wall-readable tiles
   statusCheck: true           # green/red reachability dot per tile
