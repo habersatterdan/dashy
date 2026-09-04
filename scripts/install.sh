@@ -23,6 +23,11 @@ echo "==> [2/6] Creating .env from template (edit it afterwards!)"
 echo "==> [3/6] Generating self-signed certificate + admin credentials"
 [ -f nginx/certs/signage.crt ] || ( cd nginx/certs && ADMIN_USER=admin bash generate-cert.sh "$(hostname).local" )
 
+echo "==> [3b/6] Creating central config (URLs + credentials) and rendering"
+[ -f config/endpoints.env ] || cp config/endpoints.env.example config/endpoints.env
+[ -f config/secrets.env ]   || { cp config/secrets.env.example config/secrets.env; chmod 600 config/secrets.env; }
+python3 ./scripts/render-config.py || true
+
 echo "==> [4/6] Starting the Docker Compose stack"
 docker compose pull
 docker compose up -d

@@ -20,12 +20,12 @@ location = /api/zabbix {
     # Nur POST (JSON-RPC) zulassen.
     limit_except POST { deny all; }
 
-    set $zbx "https://DEINE-ZABBIX-URL/api_jsonrpc.php";
+    set $zbx "${ZABBIX_URL}/api_jsonrpc.php";
     proxy_pass $zbx;
-    proxy_set_header Host "DEINE-ZABBIX-URL";
+    proxy_set_header Host "${ZABBIX_URL}";
     proxy_set_header Content-Type "application/json-rpc";
     # <-- Token hier eintragen; ersetzt DEIN_ZABBIX_API_TOKEN
-    proxy_set_header Authorization "Bearer DEIN_ZABBIX_API_TOKEN";
+    proxy_set_header Authorization "Bearer ${ZABBIX_API_TOKEN}";
     proxy_ssl_server_name on;
     # Internes Zabbix-Zertifikat wird nicht geprüft (Standard bei nginx-Proxy):
     proxy_ssl_verify off;

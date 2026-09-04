@@ -12,3 +12,7 @@ shots/*.png
 # Lokale Nginx-Zusatzconfig mit Tokens (Beispieldatei bleibt versioniert)
 nginx/conf.d/extra/*.conf
 !nginx/conf.d/extra/*.example
+
+# Zentrale Konfiguration (URLs + Zugangsdaten) - nur die .example-Dateien
+config/*.env
+!config/*.env.example

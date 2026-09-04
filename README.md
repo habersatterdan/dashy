@@ -172,6 +172,46 @@ sudo update-ca-certificates                                            # expect 
 `.cer` files are ignored — rename them to `.crt` first. Never disable TLS
 verification (`git config http.sslVerify false`).
 
+## Zentrale Konfiguration: URLs und Zugangsdaten
+
+Adressen und Geheimnisse stehen an **genau zwei Stellen** — nicht verstreut in
+den YAML-Dateien. Beide sind gitignored und überleben damit jedes
+`git reset --hard` / Update.
+
+| Datei | Inhalt |
+|---|---|
+| `config/endpoints.env` | URLs der On-Prem-Dienste (Zabbix, vCenter, Firewall, Backup, Grafana, Cisco …) |
+| `config/secrets.env` | API-Keys / Zugangsdaten (Zabbix-Token, Graph-Secret, Wetter-Key …) — `chmod 600` |
+
+### Ablauf
+
+```bash
+cp config/endpoints.env.example config/endpoints.env
+cp config/secrets.env.example   config/secrets.env && chmod 600 config/secrets.env
+$EDITOR config/endpoints.env config/secrets.env
+
+./scripts/render-config.py          # füllt alle *.tmpl -> fertige Configs
+docker compose restart dashy nginx
+```
+
+`render-config.py` ersetzt `${VAR}` in jeder `*.tmpl` unter
+`profiles/<profil>/` und `nginx/conf.d/extra/` und legt das Ergebnis ohne die
+Endung `.tmpl` daneben (`conf.yml.tmpl` → `conf.yml`). Was noch keinen Wert hat,
+**bleibt als `${VAR}` sichtbar stehen** und wird am Ende aufgelistet — man sieht
+also sofort, was fehlt, statt eine still kaputte Config zu bekommen. Mit
+`--check` läuft alles ohne zu schreiben, `--profile <name>` wählt ein anderes
+Profil.
+
+> Der Zabbix-API-Token landet über `nginx/conf.d/extra/zabbix.conf.tmpl` nur in
+> der Nginx-Konfiguration im Container — er erreicht den Browser der Wand nie.
+
+### Nach einem Update
+```bash
+git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
+./scripts/render-config.py          # trägt deine Werte wieder ein
+docker compose up -d
+```
+
 ## Alert-Wand (`/wall/`)
 
 Eine eigengestaltete Seite außerhalb von Dashys Kartenraster, weil der Browser
