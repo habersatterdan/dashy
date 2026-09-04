@@ -19,3 +19,7 @@ config/*.env
 
 # Laufzeit-Zustand des CVE-Watchers (gesehene CVEs)
 state/
+
+# Python-Bytecode
+__pycache__/
+*.pyc
