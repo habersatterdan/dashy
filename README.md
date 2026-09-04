@@ -74,6 +74,7 @@ editing `conf.yml`/`pages/*.yml`, and setting `DASHY_PROFILE=<name>`.
 
 ## Documentation
 
+- [docs/SETUP-PI.md](docs/SETUP-PI.md) — **Schritt-für-Schritt auf dem Pi** (Konfiguration, Start, Webhook-Test)
 - [docs/INSTALL.md](docs/INSTALL.md) — installation guide
 - [docs/UPDATE.md](docs/UPDATE.md) — update guide (Watchtower + manual)
 - [docs/BACKUP.md](docs/BACKUP.md) — backup & restore
@@ -271,6 +272,32 @@ Ein Webhook-Sender alarmiert aktiv. Beim ersten Lauf sind alle CVEs neu — ohne
 Bremse gäbe das einen Schwall. Deshalb: Dry-Run als Standard,
 `CVE_MAX_PER_RUN` (10) als Deckel und ein Dedup-Gedächtnis unter `state/`,
 damit jede CVE genau einmal meldet.
+
+### Webhook-Empfänger: was ihr bereitstellen müsst
+
+**Der Watcher sendet nur — einen Empfänger bringt er nicht mit.** `CVE_WEBHOOK_URL`
+muss auf einen Endpoint zeigen, der HTTP POST mit JSON annimmt. Optionen:
+
+| Ziel | Eignung |
+|---|---|
+| **Ticketsystem** mit Inbound-Webhook/REST-API | am saubersten — jede P1 wird ein Ticket |
+| **n8n / Node-RED / Power Automate** | nimmt generisches JSON und verteilt weiter (Mail, Teams, Ticket) — flexibelster Weg |
+| **Alerting-Tool** (Opsgenie, PagerDuty, Alerta …) | wenn ihr sowas schon habt |
+| **`scripts/test-webhook-receiver.py`** | nur zum Testen: schreibt eingehendes JSON ins Terminal |
+
+**Microsoft Teams braucht einen Zwischenschritt.** Teams akzeptiert kein freies
+JSON, sondern erwartet eine Adaptive Card, und die klassischen
+Office-365-Connector-Webhooks werden abgelöst. Der übliche Weg ist ein
+**Power-Automate-Flow** („Wenn eine HTTP-Anfrage empfangen wird" → Nachricht
+posten): der Flow nimmt unser JSON und baut die Karte. Alternativ baue ich einen
+Teams-Formatter direkt in den Watcher ein — sag Bescheid, wenn das das Ziel ist.
+
+Zum Ausprobieren ohne jede Anbindung:
+
+```bash
+./scripts/test-webhook-receiver.py 9000
+# in config/secrets.env:  CVE_WEBHOOK_URL=http://172.17.0.1:9000/hook
+```
 
 ## Alert-Wand (`/wall/`)
 
