@@ -171,3 +171,40 @@ sudo update-ca-certificates                                            # expect 
 
 `.cer` files are ignored — rename them to `.crt` first. Never disable TLS
 verification (`git config http.sslVerify false`).
+
+## Alert-Wand (`/wall/`)
+
+Eine eigengestaltete Seite außerhalb von Dashys Kartenraster, weil der Browser
+fremde Feeds nicht direkt laden darf (CORS). Nginx holt sie serverseitig und
+liefert sie same-origin unter `/feeds/<id>` aus — erst dadurch ist freies
+Layout möglich: KPI-Zeile (24 h), nach Schweregrad sortierter Meldungsstrom,
+Live-Uhr, Quellen-Gesundheit, Auto-Refresh alle 5 Minuten.
+
+### Quellen ändern
+`assets/feeds.json` (ausgeliefert unter `/tiles/feeds.json`) steuert, welche
+Quellen die Wand zeigt — `enabled: false` blendet eine aus, ohne sie zu löschen.
+Jede `id` braucht eine passende `location = /feeds/<id>` in
+`nginx/conf.d/dashy.conf`. Prüfen, ob alle Endpunkte echte Feeds liefern:
+
+```bash
+./scripts/check-feeds.sh https://localhost
+```
+
+### Einstufung: belastbar vor Heuristik
+Nennt eine Meldung eine CVE, die in CISAs **KEV-Katalog** (`/feeds/kev`) steht,
+gilt sie als *kritisch — aktiv ausgenutzt*; das ist eine autoritative Quelle,
+keine Textanalyse. Nur ohne KEV-Treffer greift eine Stichwort-Heuristik über
+Titel/Text. Der Schweregrad trägt immer Symbol + Label, nie Farbe allein.
+
+### Zabbix-Alarme einblenden
+Der API-Token gehört nicht in eine Seite, die im Flur läuft — Nginx hängt ihn
+serverseitig an:
+
+```bash
+cd nginx/conf.d/extra
+cp zabbix.conf.example zabbix.conf     # gitignored
+$EDITOR zabbix.conf                    # ZABBIX-URL + Token eintragen
+cd ../../.. && docker compose restart nginx
+```
+Danach in `assets/wall.html` `ZABBIX_ENABLED = true` setzen. Echte Alarme
+stehen dann immer vor den News.

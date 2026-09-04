@@ -1,0 +1,10 @@
+{
+  "_comment": "Quellen der Alert-Wand (/wall/). Jede id muss eine /feeds/<id>-Location in nginx/conf.d/dashy.conf haben. enabled:false blendet eine Quelle aus, ohne sie zu löschen.",
+  "feeds": [
+    { "id": "heise-alerts",   "label": "heise Alerts",   "enabled": true },
+    { "id": "bsi",            "label": "BSI CERT-Bund",  "enabled": true },
+    { "id": "cisa",           "label": "CISA",           "enabled": true },
+    { "id": "cisco",          "label": "Cisco PSIRT",    "enabled": true },
+    { "id": "heise-security", "label": "heise Security", "enabled": true }
+  ]
+}
