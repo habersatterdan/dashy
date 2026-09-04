@@ -1,0 +1,44 @@
+# =============================================================================
+# PRODUKT-WATCHLIST des CVE-Watchers
+# -----------------------------------------------------------------------------
+# Eine Zeile = ein Suchbegriff. Nur Advisories, die mindestens einen dieser
+# Begriffe im Titel/Text nennen, lösen einen Webhook aus. Ohne diesen Filter
+# bekämst du jede CVE der Welt - mit ihm nur, was euch betrifft.
+#
+# Gross-/Kleinschreibung egal. # = Kommentar.
+# Nach Änderungen:  docker compose restart cve-watcher
+# =============================================================================
+
+# --- Netzwerk / Security ---
+cisco
+ios xe
+catalyst
+meraki
+umbrella
+secure access
+anyconnect
+fortinet
+fortigate
+fortios
+
+# --- Virtualisierung ---
+vmware
+esxi
+vcenter
+vsphere
+
+# --- Microsoft (on-prem) ---
+windows server
+active directory
+exchange
+sql server
+sharepoint
+hyper-v
+
+# --- Betrieb / Tools ---
+zabbix
+veeam
+powershell universal
+devolutions
+nginx
+docker

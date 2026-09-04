@@ -16,3 +16,6 @@ nginx/conf.d/extra/*.conf
 # Zentrale Konfiguration (URLs + Zugangsdaten) - nur die .example-Dateien
 config/*.env
 !config/*.env.example
+
+# Laufzeit-Zustand des CVE-Watchers (gesehene CVEs)
+state/

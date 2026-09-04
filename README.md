@@ -212,6 +212,66 @@ git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 docker compose up -d
 ```
 
+## CVE-Watcher: Webhook bei relevanten Schwachstellen
+
+Meldet **externe** Schwachstellen, die **eure** Produkte betreffen — mit echtem
+CVSS, nicht mit Stichwortraten.
+
+```
+Advisory-Feeds (BSI, CISA, Cisco, Fortinet, VMware, MSRC)
+   -> CVE-IDs extrahieren
+   -> Watchlist-Abgleich (config/watchlist.txt)   "betrifft uns das?"
+   -> CVSS von der NVD-API + KEV-Abgleich          "wie schlimm ist es wirklich?"
+   -> Dedup + Priorisierung
+   -> POST JSON an euren Endpoint
+```
+
+### Priorisierung
+| Bedingung | Priorität |
+|---|---|
+| CVE steht in CISAs KEV (**nachweislich ausgenutzt**) | **P1** — unabhängig vom Score |
+| CVSS >= 9.0 | **P1** |
+| CVSS >= `CVE_MIN_CVSS` (Standard 7.0) | **P2** |
+| darunter | P3 — wird nicht gesendet, nur als gesehen vermerkt |
+
+### Payload
+```json
+{
+  "event": "vulnerability.detected",
+  "detected_at": "2026-09-04T08:12:33+00:00",
+  "priority": "P1",
+  "cve": "CVE-2026-20212",
+  "cvss": { "score": 9.8, "severity": "CRITICAL", "vector": "CVSS:3.1/AV:N/...", "version": "3.1", "source": "NVD" },
+  "kev": { "listed": true, "due_date": "2026-09-18", "known_ransomware": "Known" },
+  "matched_products": ["cisco", "ios xe"],
+  "title": "Cisco IOS XE Software Vulnerability",
+  "source": "Cisco PSIRT",
+  "published": "Tue, 02 Sep 2026 10:00:00 GMT",
+  "link": "https://sec.cloudapps.cisco.com/..."
+}
+```
+
+### Einrichten
+1. **Watchlist pflegen** — `config/watchlist.txt`: eine Zeile je Produkt/Hersteller,
+   den ihr einsetzt. Ohne Treffer keine Meldung; das ist der Unterschied zwischen
+   „jede CVE der Welt" und „das betrifft uns".
+2. **Ziel eintragen** — `CVE_WEBHOOK_URL` (+ optional `CVE_WEBHOOK_AUTH_HEADER`)
+   in `config/secrets.env`. Ein **NVD-API-Key** (kostenlos) beschleunigt die
+   CVSS-Abfragen deutlich; ohne Key wartet der Watcher 7 s je CVE.
+3. **Erst beobachten** — der Dienst startet mit `CVE_DRY_RUN=true` und schreibt
+   nur ins Log:
+   ```bash
+   docker compose logs -f cve-watcher
+   ```
+   Wenn die richtigen Meldungen auftauchen, in `.env` `CVE_DRY_RUN=false` setzen
+   und `docker compose up -d cve-watcher`.
+
+### Warum Dry-Run zuerst
+Ein Webhook-Sender alarmiert aktiv. Beim ersten Lauf sind alle CVEs neu — ohne
+Bremse gäbe das einen Schwall. Deshalb: Dry-Run als Standard,
+`CVE_MAX_PER_RUN` (10) als Deckel und ein Dedup-Gedächtnis unter `state/`,
+damit jede CVE genau einmal meldet.
+
 ## Alert-Wand (`/wall/`)
 
 Eine eigengestaltete Seite außerhalb von Dashys Kartenraster, weil der Browser

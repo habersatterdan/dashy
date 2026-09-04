@@ -144,6 +144,42 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # CVE-Watcher - meldet externe Schwachstellen, die EURE Produkte betreffen.
+  # Zieht Advisory-Feeds, holt echtes CVSS von der NVD, prueft CISAs KEV-Liste,
+  # filtert gegen config/watchlist.txt und sendet JSON-Webhooks (P1/P2).
+  # Startet bewusst mit DRY_RUN=true: schreibt nur ins Log, sendet nichts.
+  # ---------------------------------------------------------------------------
+  cve-watcher:
+    image: python:3.12-alpine
+    container_name: cve-watcher
+    restart: unless-stopped
+    command: ["python", "/app/watch.py"]
+    volumes:
+      - ./services/cve-watcher/watch.py:/app/watch.py:ro
+      - ./config/watchlist.txt:/config/watchlist.txt:ro
+      - ./state:/state
+      - ./nginx/certs:/certs:ro
+    environment:
+      # Erst beobachten, dann scharf schalten: DRY_RUN=false sendet wirklich.
+      - DRY_RUN=${CVE_DRY_RUN:-true}
+      - WEBHOOK_URL=${CVE_WEBHOOK_URL:-}
+      - WEBHOOK_AUTH_HEADER=${CVE_WEBHOOK_AUTH_HEADER:-}
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
+      - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
+      - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
+      # Firmen-CA, damit die Feeds hinter dem SSL-Proxy erreichbar sind:
+      - SSL_CERT_FILE=/certs/chain.crt
+      - TZ=${TZ:-Europe/Berlin}
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   signage:
     driver: bridge
