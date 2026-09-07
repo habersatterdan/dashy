@@ -12,17 +12,18 @@ services:
       - ./profiles/${DASHY_PROFILE:-enterprise}/conf.yml:/app/user-data/conf.yml:ro
       - ./profiles/${DASHY_PROFILE:-enterprise}/pages:/app/user-data/pages:ro
       - ./assets:/app/user-data/item-icons/assets:ro
-      # Corporate CA bundle so Dashy can fetch RSS feeds behind an
-      # SSL-inspection proxy (Cisco Secure Access etc.). Put your CA chain at
-      # nginx/certs/chain.crt; harmless if absent.
       - ./nginx/certs:/certs:ro
+      # CA-Buendel des Hosts: enthaelt die CA des SSL-Inspection-Proxys, ohne
+      # die Dashys RSS-Widgets "Unable to fetch data" melden.
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/certs/host-ca-bundle.crt:ro
     environment:
       - NODE_ENV=production
       - UID=1000
       - GID=1000
-      # Node reads extra trusted CAs from here -> fixes "Unable to fetch data"
-      # on HTTPS feeds when a corporate proxy re-signs TLS.
-      - NODE_EXTRA_CA_CERTS=/certs/chain.crt
+      # Node liest zusaetzliche CAs aus dieser Datei (ergaenzt den eingebauten
+      # Store). Das Host-Buendel enthaelt die Proxy-CA -> behebt
+      # "Unable to fetch data" bei den RSS-Widgets.
+      - NODE_EXTRA_CA_CERTS=/certs/host-ca-bundle.crt
     healthcheck:
       # Dashy ships a small health script; fall back to a plain HTTP probe.
       test: ["CMD", "node", "/app/services/healthcheck"]
@@ -165,6 +166,11 @@ services:
       - ./config/watchlist.txt:/config/watchlist.txt:ro
       - ./state:/state
       - ./nginx/certs:/certs:ro
+      # Fertiges CA-Buendel des Hosts (oeffentliche Root-CAs + alle per
+      # update-ca-certificates installierten Firmen-CAs, inkl. der CA des
+      # SSL-Inspection-Proxys). Ohne das scheitert jede aufgebrochene
+      # Verbindung - auch zu oeffentlichen Zielen wie Azure.
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/certs/host-ca-bundle.crt:ro
     environment:
       # Erst beobachten, dann scharf schalten: DRY_RUN=false sendet wirklich.
       - DRY_RUN=${CVE_DRY_RUN:-true}
@@ -174,10 +180,10 @@ services:
       - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
       - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
-      # Firmen-CA ZUSAETZLICH zu den oeffentlichen Root-CAs. Nicht
-      # SSL_CERT_FILE verwenden - das ersetzt den System-Store und laesst
-      # jede nicht aufgebrochene Quelle scheitern.
-      - CORP_CA_FILE=/certs/chain.crt
+      # Mehrere CA-Dateien, durch ":" getrennt, ZUSAETZLICH zum System-Store.
+      # Nicht SSL_CERT_FILE verwenden - das ersetzt den Store, statt ihn zu
+      # ergaenzen. Das Host-Buendel steht zuerst: es enthaelt die Proxy-CA.
+      - CORP_CA_FILE=/certs/host-ca-bundle.crt:/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
     networks:
       - signage
