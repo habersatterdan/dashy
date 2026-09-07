@@ -174,8 +174,10 @@ services:
       - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
       - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
-      # Firmen-CA, damit die Feeds hinter dem SSL-Proxy erreichbar sind:
-      - SSL_CERT_FILE=/certs/chain.crt
+      # Firmen-CA ZUSAETZLICH zu den oeffentlichen Root-CAs. Nicht
+      # SSL_CERT_FILE verwenden - das ersetzt den System-Store und laesst
+      # jede nicht aufgebrochene Quelle scheitern.
+      - CORP_CA_FILE=/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
     networks:
       - signage
