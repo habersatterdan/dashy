@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Betriebslage</title>
+<style>
+  /* Dark-only NOC-Wand, gleiche validierte Status-Palette wie /wall/.
+     Grundregel: Farbe trägt nie allein Bedeutung - jede Kachel führt
+     zusätzlich ein Symbol und ein ausgeschriebenes Label. */
+  :root{
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8a8a80;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+    --rule:#2e2e2c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--plane); color:var(--ink); overflow:hidden; cursor:none;
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    font-variant-numeric:tabular-nums;
+    display:flex; flex-direction:column;
+  }
+
+  header{display:flex; align-items:baseline; gap:22px; padding:16px 30px 12px;
+         border-bottom:1px solid var(--rule)}
+  h1{font-size:24px; font-weight:700; letter-spacing:.14em; text-transform:uppercase}
+  #sub{color:var(--ink-3); font-size:13px; letter-spacing:.06em}
+  #clock{margin-left:auto; font-size:36px; font-weight:600; line-height:1}
+  #date{color:var(--ink-2); font-size:13px}
+
+  /* ---------- Verdikt: die eine Aussage, die im Vorbeigehen zählt ---------- */
+  #verdict{
+    display:flex; align-items:center; gap:20px; margin:14px 30px 0;
+    padding:16px 24px; border-radius:12px; border:1px solid var(--rule);
+    background:var(--surface); border-left-width:8px;
+  }
+  #verdict .glyph{font-size:44px; line-height:1}
+  #verdict .txt{font-size:38px; font-weight:700; letter-spacing:.02em}
+  #verdict .note{margin-left:auto; color:var(--ink-2); font-size:15px; text-align:right}
+  #verdict.ok  {border-left-color:var(--good)}
+  #verdict.warn{border-left-color:var(--warning)}
+  #verdict.crit{border-left-color:var(--critical)}
+  #verdict.ok   .txt{color:var(--good)}
+  #verdict.warn .txt{color:var(--warning)}
+  #verdict.crit .txt{color:var(--critical)}
+  /* Kritisch pulsiert dezent - zieht den Blick, ohne zu flackern. */
+  #verdict.crit{animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{background:var(--surface)}50%{background:#241717}}
+
+  #kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:14px 30px 4px}
+  .kpi{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+       padding:12px 16px; display:flex; flex-direction:column; gap:2px}
+  .kpi .n{font-size:40px; font-weight:700; line-height:1.05}
+  .kpi .l{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3)}
+  .kpi.ok .n{color:var(--good)} .kpi.warn .n{color:var(--warning)}
+  .kpi.crit .n{color:var(--critical)}
+
+  /* ---------- Hauptbereich ---------- */
+  main{flex:1; min-height:0; display:grid; grid-template-columns:2fr 1fr;
+       gap:16px; padding:12px 30px 20px}
+  main.solo{grid-template-columns:1fr}
+  .col{min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:10px}
+  .col h2{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+          color:var(--ink-3); padding-bottom:2px}
+
+  .grp{margin-bottom:10px}
+  .grp .gh{font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+           color:var(--ink-3); margin:0 0 6px 2px}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:9px}
+  .tile{background:var(--surface); border:1px solid var(--rule); border-radius:9px;
+        border-left-width:5px; padding:9px 12px; display:flex; flex-direction:column; gap:3px}
+  .tile.ok  {border-left-color:var(--good)}
+  .tile.warn{border-left-color:var(--warning)}
+  .tile.crit{border-left-color:var(--critical)}
+  .tile.unknown{border-left-color:var(--ink-3)}
+  .tile .top{display:flex; align-items:center; gap:7px}
+  .tile .g{font-size:15px; line-height:1}
+  .tile .nm{font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden;
+            text-overflow:ellipsis}
+  .tile .ms{margin-left:auto; font-size:13px; color:var(--ink-2)}
+  .tile .msg{font-size:12px; color:var(--ink-3); white-space:nowrap;
+             overflow:hidden; text-overflow:ellipsis}
+  .tile.crit .msg{color:var(--critical)}
+  .tile.warn .msg{color:var(--warning)}
+  .spark{height:20px; width:100%; display:block}
+
+  /* ---------- Zabbix-Spalte ---------- */
+  #zbx{flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:7px}
+  .prob{background:var(--surface); border:1px solid var(--rule); border-radius:9px;
+        border-left-width:5px; padding:8px 12px; display:flex; flex-direction:column; gap:3px}
+  .prob.d5,.prob.d4{border-left-color:var(--critical)}
+  .prob.d3{border-left-color:var(--serious)}
+  .prob.d2{border-left-color:var(--warning)}
+  .prob.d1,.prob.d0{border-left-color:var(--ink-3)}
+  .prob .ph{display:flex; gap:8px; align-items:baseline}
+  .prob .sev{font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+             font-weight:700; color:var(--ink-2)}
+  .prob .age{margin-left:auto; font-size:12px; color:var(--ink-3)}
+  .prob .nm{font-size:14px; font-weight:600}
+  .prob .host{font-size:12px; color:var(--ink-3)}
+  .empty{color:var(--ink-3); font-size:14px; padding:10px 2px; line-height:1.5}
+
+  footer{border-top:1px solid var(--rule); padding:8px 30px; display:flex;
+         gap:20px; color:var(--ink-3); font-size:12px}
+  footer .r{margin-left:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Betriebslage</h1>
+  <span id="sub">Eigene Systeme · Live-Messung</span>
+  <div style="margin-left:auto;text-align:right">
+    <div id="clock">--:--</div>
+    <div id="date">&nbsp;</div>
+  </div>
+</header>
+
+<div id="verdict" class="unknown">
+  <span class="glyph">⏳</span>
+  <span class="txt">Messung läuft …</span>
+  <span class="note" id="vnote"></span>
+</div>
+
+<div id="kpis">
+  <div class="kpi ok"><span class="n" id="k-ok">–</span><span class="l">Systeme in Ordnung</span></div>
+  <div class="kpi warn"><span class="n" id="k-warn">–</span><span class="l">Warnungen</span></div>
+  <div class="kpi crit"><span class="n" id="k-crit">–</span><span class="l">Gestört</span></div>
+  <div class="kpi"><span class="n" id="k-zbx">–</span><span class="l">Zabbix-Probleme</span></div>
+</div>
+
+<main id="main" class="solo">
+  <section class="col">
+    <h2>Dienste</h2>
+    <div id="services" style="overflow:hidden"><div class="empty">Warte auf erste Messung …</div></div>
+  </section>
+  <section class="col" id="zcol" hidden>
+    <h2>Zabbix – offene Probleme</h2>
+    <div id="zbx"></div>
+  </section>
+</main>
+
+<footer>
+  <span id="f-cert">&nbsp;</span>
+  <span class="r" id="f-age">&nbsp;</span>
+</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Datenquellen
+     /data/probe.json  - eigene Messung (services/probe), immer vorhanden
+     /api/zabbix       - Zabbix JSON-RPC über Nginx, Token serverseitig.
+                         Fehlt die Datei nginx/conf.d/extra/zabbix.conf, liefert
+                         der Aufruf 404 und die Spalte bleibt einfach aus.
+   Kein API-Token im Quelltext - die Wand hängt im Flur.
+--------------------------------------------------------------------------- */
+const REFRESH_MS = 20000;
+const GLYPH = { ok:'✓', warn:'!', crit:'✕', unknown:'?' };
+const LABEL = { ok:'OK', warn:'Warnung', crit:'Gestört', unknown:'unklar' };
+const SEV   = ['nicht klassifiziert','Information','Warnung','Durchschnittlich',
+               'Hoch','Katastrophe'];
+let zabbixAvailable = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function tickClock(){
+  const d = new Date();
+  $('clock').textContent = d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  $('date').textContent  = d.toLocaleDateString('de-DE',
+    {weekday:'long', day:'2-digit', month:'long'});
+}
+
+/* Sparkline der Antwortzeiten. Ausfälle (null) werden als Lücke gezeichnet,
+   nicht als 0 - eine 0 sähe aus wie "besonders schnell". */
+function sparkline(hist){
+  const vals = hist.filter(v => v !== null);
+  if (vals.length < 2) return '';
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const span = Math.max(max - min, 1), n = hist.length;
+  let d = '', pen = false;
+  hist.forEach((v,i) => {
+    if (v === null){ pen = false; return; }
+    const x = (i/(n-1))*100, y = 18 - ((v-min)/span)*16;
+    d += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+    pen = true;
+  });
+  return `<svg class="spark" viewBox="0 0 100 20" preserveAspectRatio="none">
+      <path d="${d}" fill="none" stroke="#8a8a80" stroke-width="1.2"
+            vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function renderProbe(doc){
+  const s = doc.summary;
+  $('k-ok').textContent   = s.ok;
+  $('k-warn').textContent = s.warn;
+  $('k-crit').textContent = s.crit;
+
+  /* Das Verdikt ist die eigentliche Botschaft der Wand: eine Zeile, aus
+     fünf Metern lesbar, die sagt ob man stehenbleiben muss. */
+  const v = $('verdict');
+  const broken = doc.targets.filter(t => t.state === 'crit');
+  v.className = s.crit ? 'crit' : (s.warn ? 'warn' : 'ok');
+  if (s.crit){
+    v.querySelector('.glyph').textContent = '✕';
+    v.querySelector('.txt').textContent =
+      s.crit === 1 ? `${broken[0].name} gestört` : `${s.crit} Systeme gestört`;
+    $('vnote').textContent = broken.slice(0,3).map(t => t.name).join(' · ');
+  } else if (s.warn){
+    v.querySelector('.glyph').textContent = '!';
+    v.querySelector('.txt').textContent = `${s.warn} Warnung${s.warn>1?'en':''}`;
+    $('vnote').textContent = doc.targets.filter(t => t.state === 'warn')
+      .slice(0,3).map(t => t.name).join(' · ');
+  } else {
+    v.querySelector('.glyph').textContent = '✓';
+    v.querySelector('.txt').textContent = 'Alle Systeme laufen';
+    $('vnote').textContent = `${s.total} Dienste geprüft`;
+  }
+
+  /* Nach Gruppen bündeln, gestörte Gruppen zuerst - kaputtes wandert nach oben. */
+  const groups = {};
+  doc.targets.forEach(t => (groups[t.group] ||= []).push(t));
+  const rank = g => Math.min(...g.map(t => ({crit:0,warn:1,unknown:2,ok:3})[t.state]));
+  const html = Object.entries(groups)
+    .sort((a,b) => rank(a[1]) - rank(b[1]) || a[0].localeCompare(b[0]))
+    .map(([name, items]) => `
+      <div class="grp"><div class="gh">${esc(name)}</div><div class="tiles">` +
+      items.sort((a,b) => ({crit:0,warn:1,unknown:2,ok:3})[a.state] -
+                          ({crit:0,warn:1,unknown:2,ok:3})[b.state])
+      .map(t => `
+        <div class="tile ${t.state}">
+          <div class="top">
+            <span class="g">${GLYPH[t.state]}</span>
+            <span class="nm">${esc(t.name)}</span>
+            <span class="ms">${t.ms === null ? LABEL[t.state] : t.ms + ' ms'}</span>
+          </div>
+          <div class="msg">${esc(t.message)}</div>
+          ${sparkline(t.history || [])}
+        </div>`).join('') + `</div></div>`).join('');
+  $('services').innerHTML = html || '<div class="empty">Keine Ziele konfiguriert. '
+    + 'Lege <code>config/probes.txt</code> an (Vorlage: probes.txt.example).</div>';
+
+  /* Zertifikate, die bald ablaufen - der Klassiker, der sonst niemandem auffällt. */
+  const soon = doc.targets.filter(t => t.cert_days !== null && t.cert_days < 45)
+    .sort((a,b) => a.cert_days - b.cert_days);
+  $('f-cert').textContent = soon.length
+    ? '🔐 Zertifikat läuft ab: ' + soon.slice(0,3)
+        .map(t => `${t.name} in ${Math.round(t.cert_days)} T`).join('  ·  ')
+    : '🔐 Alle geprüften Zertifikate länger als 45 Tage gültig';
+
+  const age = Math.round((Date.now() - new Date(doc.generated)) / 1000);
+  $('f-age').textContent = `Messung vor ${age} s · Intervall ${doc.interval} s`
+    + (age > doc.interval * 3 ? '  ⚠ Sonde antwortet nicht mehr' : '');
+}
+
+async function loadProbe(){
+  try{
+    const r = await fetch('/data/probe.json?t=' + Date.now(), {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    renderProbe(await r.json());
+  } catch(e){
+    const v = $('verdict');
+    v.className = 'warn';
+    v.querySelector('.glyph').textContent = '!';
+    v.querySelector('.txt').textContent = 'Messdaten nicht lesbar';
+    $('vnote').textContent = String(e.message || e);
+  }
+}
+
+/* --- Zabbix ---------------------------------------------------------------
+   Ein einziger JSON-RPC-Aufruf: offene Probleme mit Hostnamen. Schlägt er
+   fehl (nicht konfiguriert / Token abgelaufen), bleibt die Spalte aus, statt
+   die ganze Wand zu blockieren. */
+async function rpc(method, params){
+  const r = await fetch('/api/zabbix', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({jsonrpc:'2.0', method, params, id:1})
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.data || j.error.message);
+  return j.result;
+}
+
+async function loadZabbix(){
+  try{
+    const probs = await rpc('problem.get', {
+      output:['eventid','name','severity','clock'],
+      selectHosts:['name'], recent:false, sortfield:['eventid'],
+      sortorder:'DESC', limit:40
+    });
+    zabbixAvailable = true;
+    $('zcol').hidden = false;
+    $('main').classList.remove('solo');
+    $('k-zbx').textContent = probs.length;
+
+    const rows = probs
+      .sort((a,b) => b.severity - a.severity || b.clock - a.clock)
+      .slice(0, 12)
+      .map(p => {
+        const mins = Math.round((Date.now()/1000 - p.clock) / 60);
+        const age = mins < 60 ? `${mins} min`
+                  : mins < 1440 ? `${Math.round(mins/60)} h`
+                  : `${Math.round(mins/1440)} T`;
+        const host = (p.hosts && p.hosts[0] && p.hosts[0].name) || '';
+        return `<div class="prob d${p.severity}">
+            <div class="ph"><span class="sev">${esc(SEV[p.severity] || '')}</span>
+              <span class="age">seit ${age}</span></div>
+            <div class="nm">${esc(p.name)}</div>
+            <div class="host">${esc(host)}</div>
+          </div>`;
+      }).join('');
+    $('zbx').innerHTML = rows ||
+      '<div class="empty">✓ Zabbix meldet keine offenen Probleme.</div>';
+  } catch(e){
+    // Nicht eingerichtet ist kein Fehlerzustand - Spalte still ausblenden.
+    zabbixAvailable = false;
+    $('zcol').hidden = true;
+    $('main').classList.add('solo');
+    $('k-zbx').textContent = '–';
+  }
+}
+
+function refresh(){ loadProbe(); loadZabbix(); }
+tickClock(); setInterval(tickClock, 1000);
+refresh(); setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>

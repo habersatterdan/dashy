@@ -23,3 +23,6 @@ state/
 # Python-Bytecode
 __pycache__/
 *.pyc
+
+# Eigene Prüfziele der Sonde (Beispieldatei bleibt versioniert)
+config/probes.txt

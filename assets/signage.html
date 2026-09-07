@@ -46,12 +46,24 @@
     const RELOAD_MS = (parseInt(qs.get('reload'), 10) || 300) * 1000;  // 5min
     const SHIFT_MS  = 90 * 1000;                                       // burn-in
 
+    // Seitenliste der Wand. "secs" ueberschreibt die Standarddauer - die
+    // Betriebslage ist die eigentliche Botschaft und bleibt darum am laengsten
+    // stehen; Nachrichtenseiten laufen kuerzer durch.
+    // Eine Seite ausbauen: Zeile loeschen oder auskommentieren (//).
     const PAGES = [
-      { name: 'Alerts',    url: '/wall/' },
-      { name: 'Übersicht', url: '/' },
-      { name: 'Störungen', url: '/stoerungen' },
-      { name: 'Security',  url: '/security' },
-      { name: 'Updates',   url: '/updates' },
+      { name: 'Betriebslage', url: '/lage/',       secs: 60 },
+      { name: 'Alerts',       url: '/wall/',       secs: 30 },
+      { name: 'Übersicht',    url: '/' },
+      { name: 'Störungen',    url: '/stoerungen' },
+      { name: 'Security',     url: '/security' },
+      { name: 'Updates',      url: '/updates' },
+
+      // --- Eigenes Zabbix-Dashboard --------------------------------------
+      // Erst einkommentieren, wenn nginx/conf.d/extra/zabbix.conf gerendert
+      // ist (sonst 404). dashboardid aus der Zabbix-URL uebernehmen.
+      // kiosk=1 blendet Menue und Kopfzeile aus.
+      // { name: 'Zabbix', secs: 60,
+      //   url: '/zabbix/zabbix.php?action=dashboard.view&dashboardid=1&kiosk=1' },
     ];
 
     const frame = document.getElementById('frame');
@@ -61,6 +73,7 @@
 
     PAGES.forEach(() => dotsEl.insertAdjacentHTML('beforeend', '<span></span>'));
     const dots = [...dotsEl.children];
+    let rotTimer = null;   // vor show(0) deklariert: scheduleNext greift darauf zu
 
     let idx = 0;
     function show(i) {
@@ -68,11 +81,19 @@
       frame.src = PAGES[idx].url;
       pageEl.textContent = PAGES[idx].name;
       dots.forEach((d, n) => d.classList.toggle('on', n === idx));
+      scheduleNext();
     }
     show(0);
 
-    // Page rotation.
-    setInterval(() => show(idx + 1), ROTATE_MS);
+    // Weiterschalten. Kein fester Takt mehr, sondern eine Kette von Timern -
+    // nur so kann jede Seite ihre eigene Standzeit haben.
+    function scheduleNext() {
+      clearTimeout(rotTimer);
+      const secs = PAGES[idx].secs;
+      rotTimer = setTimeout(() => show(idx + 1),
+                            secs ? secs * 1000 : ROTATE_MS);
+    }
+    scheduleNext();
 
     // Full reload keeps memory clean and recovers from any stalled state.
     setTimeout(() => location.reload(), RELOAD_MS);

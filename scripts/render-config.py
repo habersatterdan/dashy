@@ -18,6 +18,7 @@ damit man im Ergebnis sofort sieht, was noch fehlt.
 """
 import argparse, os, re, sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 PLACEHOLDER = re.compile(r"\$\{([A-Z0-9_]+)\}")
@@ -55,6 +56,16 @@ def main() -> int:
         print(f"HINWEIS: {p} fehlt - lege sie an mit:  cp {p}.example {p}")
 
     values = {**endpoints, **secrets}
+
+    # Abgeleitete Werte: aus jeder ..._URL zusaetzlich ..._HOST bilden.
+    # Nginx braucht im Host-Header den reinen Hostnamen, nicht die ganze URL -
+    # sonst antwortet das Ziel mit einem Fehler. Das von Hand doppelt pflegen
+    # zu muessen waere eine sichere Fehlerquelle.
+    for key, val in list(values.items()):
+        if key.endswith("_URL") and val:
+            host = urlsplit(val).hostname
+            if host:
+                values.setdefault(key[:-4] + "_HOST", host)
     profile = args.profile or dotenv.get("DASHY_PROFILE", "enterprise")
 
     roots = [ROOT / "profiles" / profile, ROOT / "nginx" / "conf.d" / "extra"]

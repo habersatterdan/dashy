@@ -61,6 +61,8 @@ services:
       - ./profiles/${DASHY_PROFILE:-enterprise}/pages:/usr/share/nginx/html/pages:ro
       # Screenshots produced by the "shotter" service, served at /shots/*.png
       - ./shots:/usr/share/nginx/html/shots:ro
+      # Messdaten der Sonde; Nginx liefert nur probe.json aus.
+      - ./state:/usr/share/nginx/html/data:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
@@ -137,6 +139,45 @@ services:
       # - HTTP_PROXY=http://proxy.example.local:8080
     volumes:
       - ./shots:/shots
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Probe - misst selbst, statt Nachrichten zu lesen.
+  # Prueft jede Zeile aus config/probes.txt (HTTP-Status, Antwortzeit,
+  # Zertifikatsrestlaufzeit, offene Ports, DNS) und schreibt das Ergebnis nach
+  # ./state/probe.json. Nginx liefert es unter /data/probe.json aus, die
+  # Betriebslage-Wand (/lage/) rendert es. Braucht keinerlei Zugangsdaten.
+  # ---------------------------------------------------------------------------
+  probe:
+    image: python:3.12-alpine
+    container_name: probe
+    restart: unless-stopped
+    command: ["python", "/app/probe.py"]
+    volumes:
+      # Verzeichnisse mounten, nicht Einzeldateien - siehe cve-watcher.
+      - ./services/probe:/app:ro
+      - ./config:/config:ro
+      - ./state:/state
+      - ./nginx/certs:/certs:ro
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
+    environment:
+      - PROBE_INTERVAL=${PROBE_INTERVAL:-60}
+      - PROBE_TIMEOUT=${PROBE_TIMEOUT:-8}
+      # Ab dieser Antwortzeit gilt ein Dienst als langsam (gelb).
+      - PROBE_SLOW_MS=${PROBE_SLOW_MS:-2000}
+      - PROBE_CERT_WARN_DAYS=${PROBE_CERT_WARN_DAYS:-30}
+      - PROBE_CERT_CRIT_DAYS=${PROBE_CERT_CRIT_DAYS:-7}
+      # Interne Zertifikate sind der Normalfall: die Erreichbarkeit soll nicht
+      # an einer fehlenden CA scheitern. Die Restlaufzeit wird trotzdem gelesen.
+      - PROBE_VERIFY_TLS=${PROBE_VERIFY_TLS:-false}
+      - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
+      - TZ=${TZ:-Europe/Berlin}
     networks:
       - signage
     logging:

@@ -229,6 +229,113 @@ git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 docker compose up -d --force-recreate
 ```
 
+## Betriebslage — die eigentliche Wand
+
+`https://<pi>/lage/`
+
+Der Rest des Dashboards zeigt **Nachrichten über die Welt**. Diese Seite zeigt
+**euren Zustand** — gemessen, nicht gemeldet. Genau das will man beim
+Vorbeilaufen wissen.
+
+Ganz oben steht **ein Satz**, aus fünf Metern lesbar:
+
+| Lage | Anzeige |
+|------|---------|
+| alles läuft | ✓ **Alle Systeme laufen** — grün, ruhig |
+| Warnungen | ! **3 Warnungen** — gelb, mit Namen |
+| Ausfall | ✕ **vCenter gestört** — rot, pulsiert dezent |
+
+Darunter Kennzahlen, dann jeder Dienst als Kachel mit Antwortzeit und
+Verlaufslinie, gruppiert nach Bereich. **Gestörtes wandert automatisch nach
+oben** — man muss nicht suchen.
+
+### Was gemessen wird
+
+Eine Zeile pro Dienst in `config/probes.txt` (Vorlage: `probes.txt.example`):
+
+```
+Name              | Gruppe           | Ziel
+Zabbix            | Monitoring       | https://zabbix.example.local
+DC01 LDAP         | Identity         | tcp://dc01.example.local:389
+Interner DNS      | Netzwerk         | dns://intranet.example.local
+```
+
+Das Ziel bestimmt die Prüfart:
+
+| Ziel | Geprüft wird |
+|------|--------------|
+| `https://…` | Statuscode, Antwortzeit **und Restlaufzeit des Zertifikats** |
+| `http://…` | Statuscode, Antwortzeit |
+| `tcp://host:port` | Port offen, Verbindungszeit (LDAP, SQL, SMTP, RDP …) |
+| `dns://name` | Löst der Name auf, wie schnell |
+
+Keine Zugangsdaten nötig. Die Sonde misst alle 60 Sekunden von sich aus.
+
+Drei Details, die den Unterschied machen:
+
+- **HTTP 401/403 ist kein Ausfall.** Ein Dienst, der Anmeldung verlangt, *lebt*
+  — die Kachel bleibt grün und schreibt „erreichbar, Anmeldung nötig". Ohne
+  diese Unterscheidung wäre die halbe Wand dauerhaft rot und damit wertlos.
+- **Ablaufende Zertifikate** stehen unten in der Fußzeile, ab 30 Tagen gelb, ab
+  7 Tagen rot. Der Klassiker, der sonst erst am Ausfalltag auffällt.
+- **Ausfälle sind Lücken in der Verlaufslinie**, keine Nullwerte — 0 ms sähe
+  aus wie „besonders schnell".
+
+### Einrichten
+
+```bash
+cp config/probes.txt.example config/probes.txt
+nano config/probes.txt          # eure Dienste eintragen
+./scripts/update.sh
+```
+
+Sofort nachsehen, ob die Ziele stimmen:
+```bash
+docker compose exec probe python /app/probe.py --once
+```
+
+## Zabbix an der Wand
+
+Zwei Wege, beide ohne Token im Browser.
+
+**1. Problemliste in der Betriebslage** — rechte Spalte von `/lage/`, mit
+Schweregrad und Standzeit. Kommt automatisch, sobald
+`nginx/conf.d/extra/zabbix.conf` gerendert ist. Ist sie das nicht, bleibt die
+Spalte einfach weg.
+
+**2. Euer eigenes Zabbix-Dashboard als Vollbild.** Genau die Idee, eigene
+Dashboards in Zabbix zu bauen und anzeigen zu lassen — das ist der direkteste
+Weg zu echtem Inhalt.
+
+> **Warum ein `<iframe>` auf Zabbix leer bleibt:** Zabbix sendet
+> `X-Frame-Options: SAMEORIGIN`. Der Browser blockt die Einbettung wortlos —
+> keine Fehlermeldung, nur eine weiße Fläche. Deshalb läuft Zabbix über
+> `location /zabbix/` unter **unserer** Adresse (damit same-origin), und Nginx
+> entfernt die Kopfzeile zusätzlich. Erst dadurch wird das Bild sichtbar.
+
+Einrichten:
+
+1. `ZABBIX_URL` in `config/endpoints.env`, `ZABBIX_API_TOKEN` in
+   `config/secrets.env` (Zabbix: *Users → API tokens*, nur-lesende Rolle genügt)
+2. `./scripts/update.sh`
+3. In Zabbix das Dashboard bauen und die `dashboardid` aus der URL merken
+4. Damit ohne Anmeldung etwas zu sehen ist, **eines von beiden**:
+   Dashboard mit dem Benutzer `guest` teilen (*Sharing → Public*), oder einen
+   Nur-Lese-Benutzer anlegen und HTTP-Auth verwenden
+5. In `assets/signage.html` die Zabbix-Zeile einkommentieren und die
+   `dashboardid` eintragen
+
+Direkt prüfen — im Browser des Pi:
+`https://<pi>/zabbix/zabbix.php?action=dashboard.view&dashboardid=1&kiosk=1`
+
+`kiosk=1` blendet Menü und Kopfzeile aus.
+
+### Was wie lange läuft
+
+Die Rotation hat jetzt pro Seite eine eigene Standzeit (`secs` in
+`assets/signage.html`): Betriebslage 60 s, Alerts 30 s, der Rest 30 s. Seite
+ausbauen = Zeile löschen oder auskommentieren.
+
 ## CVE-Watcher: Webhook bei relevanten Schwachstellen
 
 Meldet **externe** Schwachstellen, die **eure** Produkte betreffen — mit echtem

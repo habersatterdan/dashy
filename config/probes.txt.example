@@ -1,0 +1,40 @@
+# =============================================================================
+# WAS DIE WAND MESSEN SOLL
+# -----------------------------------------------------------------------------
+# Eine Zeile pro Dienst:      Name | Gruppe | Ziel
+#
+# Ziel bestimmt die Prüfart:
+#   https://host/pfad   HTTP-Abruf: Statuscode, Antwortzeit UND Restlaufzeit
+#                       des TLS-Zertifikats (das erspart die böse Überraschung)
+#   http://host         HTTP-Abruf ohne Zertifikatsprüfung
+#   tcp://host:389      Port offen? (LDAP, SMTP, SQL, RDP ... )
+#   dns://name.example  Löst der Name auf?
+#
+# Kopieren:  cp config/probes.txt.example config/probes.txt
+# Die echte Datei ist gitignored und überlebt jedes "git reset --hard".
+# Zeilen mit # sind Kommentare. Reihenfolge = Reihenfolge auf der Wand.
+# =============================================================================
+
+# --- Monitoring ---------------------------------------------------------------
+Zabbix            | Monitoring       | https://zabbix.example.local
+Grafana           | Monitoring       | https://grafana.example.local
+
+# --- Virtualisierung ----------------------------------------------------------
+vCenter           | Virtualisierung  | https://vcenter.example.local
+ESXi Host 01      | Virtualisierung  | tcp://esx01.example.local:443
+
+# --- Identity / Server --------------------------------------------------------
+DC01 LDAP         | Identity         | tcp://dc01.example.local:389
+DC02 LDAP         | Identity         | tcp://dc02.example.local:389
+Exchange          | Server           | https://mail.example.local/owa
+SQL Server        | Server           | tcp://sql01.example.local:1433
+
+# --- Netzwerk / Security ------------------------------------------------------
+Firewall          | Netzwerk         | https://firewall.example.local
+Interner DNS      | Netzwerk         | dns://intranet.example.local
+Internet-Zugang   | Netzwerk         | https://www.msftconnecttest.com/connecttest.txt
+
+# --- Betrieb ------------------------------------------------------------------
+Intranet          | Betrieb          | https://intranet.example.local
+ERP               | Betrieb          | https://erp.example.local
+Backup            | Betrieb          | https://backup.example.local
