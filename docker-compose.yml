@@ -15,7 +15,7 @@ services:
       - ./nginx/certs:/certs:ro
       # CA-Buendel des Hosts: enthaelt die CA des SSL-Inspection-Proxys, ohne
       # die Dashys RSS-Widgets "Unable to fetch data" melden.
-      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/certs/host-ca-bundle.crt:ro
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
     environment:
       - NODE_ENV=production
       - UID=1000
@@ -23,7 +23,7 @@ services:
       # Node liest zusaetzliche CAs aus dieser Datei (ergaenzt den eingebauten
       # Store). Das Host-Buendel enthaelt die Proxy-CA -> behebt
       # "Unable to fetch data" bei den RSS-Widgets.
-      - NODE_EXTRA_CA_CERTS=/certs/host-ca-bundle.crt
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/host-ca-bundle.crt
     healthcheck:
       # Dashy ships a small health script; fall back to a plain HTTP probe.
       test: ["CMD", "node", "/app/services/healthcheck"]
@@ -170,7 +170,7 @@ services:
       # update-ca-certificates installierten Firmen-CAs, inkl. der CA des
       # SSL-Inspection-Proxys). Ohne das scheitert jede aufgebrochene
       # Verbindung - auch zu oeffentlichen Zielen wie Azure.
-      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/certs/host-ca-bundle.crt:ro
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
     environment:
       # Erst beobachten, dann scharf schalten: DRY_RUN=false sendet wirklich.
       - DRY_RUN=${CVE_DRY_RUN:-true}
@@ -183,7 +183,7 @@ services:
       # Mehrere CA-Dateien, durch ":" getrennt, ZUSAETZLICH zum System-Store.
       # Nicht SSL_CERT_FILE verwenden - das ersetzt den Store, statt ihn zu
       # ergaenzen. Das Host-Buendel steht zuerst: es enthaelt die Proxy-CA.
-      - CORP_CA_FILE=/certs/host-ca-bundle.crt:/certs/chain.crt
+      - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
     networks:
       - signage
