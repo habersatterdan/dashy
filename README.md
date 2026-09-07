@@ -208,9 +208,25 @@ Profil.
 
 ### Nach einem Update
 ```bash
+./scripts/update.sh                 # holt, rendert, erzeugt Container neu
+```
+
+Das Skript ersetzt die drei Schritte von Hand — und macht den entscheidenden
+vierten: `docker compose up -d --force-recreate`.
+
+> **Warum `--force-recreate` nötig ist:** Einzelne Dateien (z. B. `conf.yml`)
+> sind als Bind-Mount eingehängt, und ein Datei-Bind-Mount hängt an der *Inode*.
+> `git pull` schreibt die Datei neu, damit bekommt sie eine neue Inode — der
+> laufende Container zeigt weiter auf die alte und sieht den alten Stand. Ohne
+> Neuerzeugung wirkt jedes Update wirkungslos, ohne dass irgendwo ein Fehler
+> erscheint. (Für den CVE-Watcher ist stattdessen das ganze Verzeichnis
+> gemountet, dort tritt das Problem nicht mehr auf.)
+
+Von Hand entspricht das:
+```bash
 git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 ./scripts/render-config.py          # trägt deine Werte wieder ein
-docker compose up -d
+docker compose up -d --force-recreate
 ```
 
 ## CVE-Watcher: Webhook bei relevanten Schwachstellen
