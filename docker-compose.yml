@@ -155,6 +155,11 @@ services:
     container_name: cve-watcher
     restart: unless-stopped
     command: ["python", "/app/watch.py"]
+    # Geheimnisse kommen direkt aus der zentralen Datei in den Container.
+    # docker compose selbst liest nur ./.env - ohne env_file kaeme die
+    # Webhook-URL aus config/secrets.env nie beim Watcher an.
+    env_file:
+      - config/secrets.env
     volumes:
       - ./services/cve-watcher/watch.py:/app/watch.py:ro
       - ./config/watchlist.txt:/config/watchlist.txt:ro
@@ -163,9 +168,9 @@ services:
     environment:
       # Erst beobachten, dann scharf schalten: DRY_RUN=false sendet wirklich.
       - DRY_RUN=${CVE_DRY_RUN:-true}
-      - WEBHOOK_URL=${CVE_WEBHOOK_URL:-}
-      - WEBHOOK_AUTH_HEADER=${CVE_WEBHOOK_AUTH_HEADER:-}
-      - NVD_API_KEY=${NVD_API_KEY:-}
+      # WEBHOOK_URL / WEBHOOK_AUTH_HEADER / NVD_API_KEY kommen aus env_file
+      # (config/secrets.env). Sie duerfen hier NICHT stehen: environment
+      # ueberschreibt env_file, ein leerer Wert wuerde den echten loeschen.
       - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
       - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}

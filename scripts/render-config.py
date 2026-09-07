@@ -87,6 +87,18 @@ def main() -> int:
             print(f"  prüfe  {rel}  ({len(used)} Platzhalter, {len(unresolved)} offen)")
             continue
 
+        # Nginx-Configs mit offenen Platzhaltern DÜRFEN NICHT geschrieben werden:
+        # "${VAR}" ist dort gültige Variablensyntax, nginx bricht beim Start mit
+        # "unknown variable" ab und der ganze Reverse-Proxy ist tot. Bei YAML ist
+        # ein sichtbarer Platzhalter harmlos, hier nicht.
+        if target.suffix == ".conf" and unresolved:
+            if target.exists():
+                target.unlink()
+                print(f"  ENTFERNT {rel}  (offene Platzhalter: {', '.join(unresolved)})")
+            else:
+                print(f"  UEBERSPRUNGEN {rel}  (offene Platzhalter: {', '.join(unresolved)})")
+            continue
+
         if target.exists() and target.read_text(encoding="utf-8") == rendered:
             print(f"  gleich {rel}")
         else:
