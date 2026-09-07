@@ -129,7 +129,23 @@ Treffer → Watchlist enger fassen. Zu wenige → Begriffe ergänzen.
 
 ---
 
-## Schritt 9 — Webhook testen (mit dem Test-Empfänger)
+## Schritt 9 — Webhook sofort testen
+
+Nicht auf den nächsten Poll-Zyklus warten — der Watcher kennt zwei Schalter:
+
+```bash
+# EINEN erfundenen Payload ans konfigurierte Ziel senden (ignoriert DRY_RUN):
+docker compose exec cve-watcher python /app/watch.py --test-webhook
+
+# EINEN kompletten echten Durchlauf und danach beenden:
+docker compose exec cve-watcher python /app/watch.py --once
+```
+
+Der Selbsttest schickt `"event": "vulnerability.test"` mit `CVE-1900-00000` —
+so ist im Ticketsystem sofort klar, dass es kein echter Fund ist. Kommt
+`Webhook ... -> HTTP 200`, steht die Kette.
+
+## Schritt 9b — Testen ohne echtes Zielsystem
 
 **Terminal A** — Empfänger starten:
 ```bash
