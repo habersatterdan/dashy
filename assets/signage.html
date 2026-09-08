@@ -92,6 +92,7 @@
       return out;
     }
 
+    let pagesSource = null;
     async function loadPages() {
       try {
         const r = await fetch('/config/pages.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -100,8 +101,13 @@
         // Eine leere oder komplett auskommentierte Datei darf die Wand nicht
         // schwarz schalten - dann bleibt die Rueckfallebene stehen.
         if (list.length) PAGES = list;
+        pagesSource = 'config/pages.txt';
       } catch (e) {
+        // Nicht stumm bleiben: "die Wand zeigt nicht, was ich eingetragen habe"
+        // ist sonst kaum aufzuklaeren - man sieht der Rotation nicht an, aus
+        // welcher Quelle sie kommt.
         console.warn('config/pages.txt nicht lesbar, nutze Vorgabeliste:', e);
+        pagesSource = null;
       }
     }
 
@@ -109,7 +115,8 @@
     function show(i) {
       idx = (i + PAGES.length) % PAGES.length;
       frame.src = PAGES[idx].url;
-      pageEl.textContent = PAGES[idx].name;
+      pageEl.textContent = PAGES[idx].name
+        + (pagesSource ? '' : '   ⚠ config/pages.txt fehlt – Vorgabeliste');
       dots.forEach((d, n) => d.classList.toggle('on', n === idx));
       scheduleNext();
     }
