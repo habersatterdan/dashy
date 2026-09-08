@@ -22,6 +22,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 PLACEHOLDER = re.compile(r"\$\{([A-Z0-9_]+)\}")
+# Platzhalter, die leer sein DUERFEN, ohne die Datei zu verwerfen.
+ALLOW_EMPTY = set()
 
 
 def read_env(path: Path) -> dict:
@@ -57,15 +59,41 @@ def main() -> int:
 
     values = {**endpoints, **secrets}
 
-    # Abgeleitete Werte: aus jeder ..._URL zusaetzlich ..._HOST bilden.
-    # Nginx braucht im Host-Header den reinen Hostnamen, nicht die ganze URL -
-    # sonst antwortet das Ziel mit einem Fehler. Das von Hand doppelt pflegen
-    # zu muessen waere eine sichere Fehlerquelle.
+    # Abgeleitete Werte je ..._URL. Sie von Hand doppelt zu pflegen waere eine
+    # sichere Fehlerquelle, und die Rohform der URL taugt fuer nginx nicht:
+    #   _HOST    reiner Hostname       -> Host-Header
+    #   _ORIGIN  schema://host[:port]  -> proxy_pass OHNE Pfad; nur dann
+    #            reicht nginx die (umgeschriebene) Anfrage-URI unveraendert
+    #            weiter. Steht ein Pfad in der Variablen, ist das Verhalten
+    #            nicht vorhersagbar.
+    #   _PATH    Basispfad ohne Schraegstrich am Ende, ggf. leer
+    #            (Zabbix liegt oft unter /zabbix, manchmal auf /)
+    #   _BASE    _ORIGIN + _PATH, ohne Query -> fuer API-Endpunkte
+    #
+    # Toleriert wird bewusst auch eine URL, die jemand aus der Adresszeile
+    # kopiert hat (mit ?action=... im Anhang): Query und Fragment fliegen raus,
+    # und ein Pfad, der auf eine .php-Datei zeigt, wird auf sein Verzeichnis
+    # gekuerzt. Sonst landet der API-Aufruf auf der Dashboard-Seite und Zabbix
+    # antwortet mit HTML statt JSON - ein Fehlerbild, das niemand deutet.
     for key, val in list(values.items()):
-        if key.endswith("_URL") and val:
-            host = urlsplit(val).hostname
-            if host:
-                values.setdefault(key[:-4] + "_HOST", host)
+        if not (key.endswith("_URL") and val):
+            continue
+        u = urlsplit(val)
+        if not u.hostname:
+            continue
+        stem = key[:-4]
+        port = f":{u.port}" if u.port else ""
+        origin = f"{u.scheme or 'https'}://{u.hostname}{port}"
+        path = u.path.rstrip("/")
+        if path.endswith(".php"):
+            path = path.rsplit("/", 1)[0]
+        values.setdefault(stem + "_HOST", u.hostname)
+        values.setdefault(stem + "_ORIGIN", origin)
+        values.setdefault(stem + "_BASE", origin + path)
+        # _PATH darf leer sein (Dienst liegt auf /) - deshalb steht es in
+        # ALLOW_EMPTY, sonst wuerde die Datei als "unvollstaendig" verworfen.
+        values.setdefault(stem + "_PATH", path)
+        ALLOW_EMPTY.add(stem + "_PATH")
     profile = args.profile or dotenv.get("DASHY_PROFILE", "enterprise")
 
     roots = [ROOT / "profiles" / profile, ROOT / "nginx" / "conf.d" / "extra"]
@@ -74,18 +102,37 @@ def main() -> int:
         print(f"Keine *.tmpl gefunden (Profil: {profile}) - nichts zu rendern.")
         return 0
 
+    # Verwaiste Ergebnisse aufraeumen: wird eine Vorlage umbenannt oder
+    # geloescht, bliebe die alte .conf sonst liegen und wuerde von nginx weiter
+    # eingebunden - inklusive der Werte von vorgestern. Das kostet Stunden.
+    extra = ROOT / "nginx" / "conf.d" / "extra"
+    if extra.is_dir():
+        for conf in extra.glob("*.conf"):
+            if not conf.with_suffix(".conf.tmpl").exists():
+                conf.unlink()
+                print(f"  ENTFERNT {conf.relative_to(ROOT)}  (keine Vorlage mehr)")
+
     print(f"Profil: {profile}")
     unresolved_total, written = {}, 0
 
     for tmpl in templates:
         text = tmpl.read_text(encoding="utf-8")
         used = set(PLACEHOLDER.findall(text))
-        unresolved = sorted(n for n in used if not values.get(n))
+        unresolved = sorted(n for n in used
+                            if not values.get(n) and n not in ALLOW_EMPTY)
 
         def sub(m):
             name = m.group(1)
             v = values.get(name)
-            return v if v else m.group(0)      # leer -> Platzhalter stehen lassen
+            if v:
+                return v
+            # Ein bewusst leerer Wert (z. B. ZABBIX_PATH, wenn der Dienst auf /
+            # liegt) muss durch NICHTS ersetzt werden. Bliebe der Platzhalter
+            # stehen, waere er in einer nginx-Config gueltige Variablensyntax -
+            # und nginx startet mit "unknown variable" nicht mehr.
+            if name in ALLOW_EMPTY:
+                return ""
+            return m.group(0)                  # unbekannt -> Platzhalter stehen lassen
 
         rendered = PLACEHOLDER.sub(sub, text)
         target = tmpl.with_suffix("")          # foo.yml.tmpl -> foo.yml

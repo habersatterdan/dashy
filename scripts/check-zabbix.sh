@@ -31,15 +31,30 @@ if [ -z "${ZABBIX_URL}" ]; then
   exit 1
 fi
 ok "ZABBIX_URL = ${ZABBIX_URL}"
+
+# Eine aus der Adresszeile kopierte Dashboard-URL ist der haeufigste Fehler.
+# Sie sieht richtig aus, aber jeder API-Aufruf landet dann auf der HTML-Seite,
+# und Zabbix antwortet mit "You are not logged in" statt mit JSON.
+case "${ZABBIX_URL}" in
+  *\?*|*.php*)
+    warn "ZABBIX_URL enthaelt eine Seite bzw. Parameter."
+    echo "         Hier gehoert nur die BASIS hinein, z. B.:"
+    echo "             ZABBIX_URL=http://server.firma.local/zabbix"
+    echo "         Die Dashboard-URL kommt spaeter in assets/signage.html." ;;
+esac
 if [ -z "${TOKEN}" ] || [ "${TOKEN}" = "REPLACE_WITH_ZABBIX_API_TOKEN" ]; then
   warn "ZABBIX_API_TOKEN fehlt in config/secrets.env - die Problemliste bleibt leer."
 else
   ok "API-Token hinterlegt (${#TOKEN} Zeichen)"
 fi
 
-HOST="$(echo "${ZABBIX_URL}" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
-PORT="$(echo "${ZABBIX_URL}" | sed -nE 's#^[a-z]+://[^:/]+:([0-9]+).*$#\1#p')"
-[ -z "${PORT}" ] && { case "${ZABBIX_URL}" in https://*) PORT=443;; *) PORT=80;; esac; }
+# Bereinigte Basis: ohne Query, ohne Seitenname - genau das, was
+# scripts/render-config.py aus derselben Eingabe macht.
+BASE="$(echo "${ZABBIX_URL}" | sed -E 's#[?#].*$##; s#/[^/]*\.php$##; s#/+$##')"
+[ "${BASE}" != "${ZABBIX_URL}" ] && ok "bereinigte Basis = ${BASE}"
+HOST="$(echo "${BASE}" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
+PORT="$(echo "${BASE}" | sed -nE 's#^[a-z]+://[^:/]+:([0-9]+).*$#\1#p')"
+[ -z "${PORT}" ] && { case "${BASE}" in https://*) PORT=443;; *) PORT=80;; esac; }
 ok "Host = ${HOST}   Port = ${PORT}"
 case "${HOST}" in
   *.*) : ;;
@@ -85,7 +100,7 @@ fi
 
 # --- Schicht 4: HTTP + X-Frame-Options --------------------------------------
 step "4. Antwort von Zabbix"
-HDR="$(curl -sk -m 10 -D- -o /dev/null "${ZABBIX_URL}/" 2>/dev/null)"
+HDR="$(curl -sk -m 10 -D- -o /dev/null "${BASE}/" 2>/dev/null)"
 if [ -z "${HDR}" ]; then
   fail "keine HTTP-Antwort von ${ZABBIX_URL}/"
 else
@@ -104,24 +119,33 @@ fi
 # --- Schicht 5: API ----------------------------------------------------------
 step "5. API-Zugriff (JSON-RPC)"
 if [ -n "${TOKEN}" ] && [ "${TOKEN}" != "REPLACE_WITH_ZABBIX_API_TOKEN" ]; then
-  RESP="$(curl -sk -m 10 -X POST "${ZABBIX_URL}/api_jsonrpc.php" \
+  RESP="$(curl -sk -m 10 -X POST "${BASE}/api_jsonrpc.php" \
     -H 'Content-Type: application/json-rpc' \
     -H "Authorization: Bearer ${TOKEN}" \
     -d '{"jsonrpc":"2.0","method":"apiinfo.version","params":{},"id":1}' 2>/dev/null)"
   case "${RESP}" in
     *'"result"'*) ok "Zabbix-API antwortet: Version $(echo "${RESP}" | sed -nE 's/.*"result":"([^"]+)".*/\1/p')" ;;
     *'"error"'*)  fail "API-Fehler: ${RESP}" ;;
-    "")           fail "keine Antwort von ${ZABBIX_URL}/api_jsonrpc.php" ;;
+    "")           fail "keine Antwort von ${BASE}/api_jsonrpc.php" ;;
+    *'<!DOCTYPE html'*|*'<html'*)
+      fail "Zabbix antwortet mit einer HTML-Seite statt mit JSON."
+      echo "         Der Aufruf landet nicht auf api_jsonrpc.php. Fast immer"
+      echo "         steht in ZABBIX_URL eine komplette Dashboard-URL statt"
+      echo "         der Basis. Richtig ist z. B.:"
+      echo "             ZABBIX_URL=http://server.firma.local/zabbix"
+      echo "         Danach: ./scripts/render-config.py && ./scripts/update.sh" ;;
     *)            fail "unerwartete Antwort: ${RESP}" ;;
   esac
 
-  RESP2="$(curl -sk -m 10 -X POST "${ZABBIX_URL}/api_jsonrpc.php" \
+  RESP2="$(curl -sk -m 10 -X POST "${BASE}/api_jsonrpc.php" \
     -H 'Content-Type: application/json-rpc' \
     -H "Authorization: Bearer ${TOKEN}" \
     -d '{"jsonrpc":"2.0","method":"problem.get","params":{"limit":1},"id":1}' 2>/dev/null)"
   case "${RESP2}" in
     *'"result"'*) ok "Token gueltig, problem.get funktioniert" ;;
     *'"error"'*)  fail "Token abgelehnt: $(echo "${RESP2}" | sed -nE 's/.*"data":"([^"]*)".*/\1/p')" ;;
+    *'<html'*|*'<!DOCTYPE html'*)
+      fail "auch hier HTML statt JSON - siehe Hinweis oben zu ZABBIX_URL." ;;
     *)            fail "problem.get unerwartet: ${RESP2}" ;;
   esac
 fi
@@ -129,17 +153,25 @@ fi
 # --- Schicht 6: unser Proxy --------------------------------------------------
 step "6. Reverse-Proxy auf dem Pi"
 if [ -f nginx/conf.d/extra/zabbix.conf ]; then
-  ok "nginx/conf.d/extra/zabbix.conf ist gerendert"
-  if grep -q '\${' nginx/conf.d/extra/zabbix.conf; then
-    fail "Datei enthaelt noch offene Platzhalter - nginx startet damit nicht."
-    echo "         ./scripts/render-config.py erneut ausfuehren."
-  fi
-else
-  fail "nginx/conf.d/extra/zabbix.conf fehlt"
-  echo "         ./scripts/render-config.py ausfuehren (braucht ZABBIX_URL"
-  echo "         UND ZABBIX_API_TOKEN - fehlt einer, wird die Datei bewusst"
-  echo "         nicht geschrieben, damit nginx nicht abstuerzt)."
+  warn "Alte nginx/conf.d/extra/zabbix.conf gefunden (Vorlage wurde geteilt)."
+  echo "         ./scripts/render-config.py entfernt sie automatisch."
 fi
+if [ -f nginx/conf.d/extra/zabbix-ui.conf ]; then
+  ok "zabbix-ui.conf gerendert (Dashboards einbetten)"
+else
+  fail "zabbix-ui.conf fehlt - ./scripts/render-config.py ausfuehren (braucht nur ZABBIX_URL)"
+fi
+if [ -f nginx/conf.d/extra/zabbix-api.conf ]; then
+  ok "zabbix-api.conf gerendert (Problemliste auf /lage/)"
+else
+  warn "zabbix-api.conf fehlt - ohne gueltigen ZABBIX_API_TOKEN wird sie"
+  echo "         bewusst nicht geschrieben. Dashboards gehen trotzdem."
+fi
+for f in nginx/conf.d/extra/zabbix-ui.conf nginx/conf.d/extra/zabbix-api.conf; do
+  [ -f "$f" ] && grep -q '\${' "$f" && {
+    fail "$f enthaelt offene Platzhalter - nginx startet damit nicht."
+    echo "         ./scripts/render-config.py erneut ausfuehren."; }
+done
 
 SELF="https://127.0.0.1"
 CODE="$(curl -sk -m 10 -o /dev/null -w '%{http_code}' "${SELF}/zabbix/" 2>/dev/null)"
@@ -149,7 +181,10 @@ case "${CODE}" in
        echo "         nginx wurde nach dem Rendern nicht neu gestartet." ;;
   502|504) fail "/zabbix/ -> ${CODE}. nginx erreicht Zabbix nicht - fast immer"
        echo "         die Namensaufloesung im Container (Schritt 2)." ;;
-  000) fail "/zabbix/ nicht erreichbar - laeuft nginx?" ;;
+  000) fail "/zabbix/ nicht erreichbar - nginx antwortet nicht."
+       echo "         Pruefen:  docker compose ps   und   docker compose logs nginx"
+       echo "         Haeufigste Ursache: eine .conf mit offenen Platzhaltern,"
+       echo "         dann bricht nginx beim Start mit 'unknown variable' ab." ;;
   *)   warn "/zabbix/ antwortet HTTP ${CODE}" ;;
 esac
 

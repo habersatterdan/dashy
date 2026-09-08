@@ -27,12 +27,16 @@
 #       a) Dashboard mit dem Benutzer "guest" teilen (Sharing -> Public), oder
 #       b) einen eigenen Nur-Lese-Benutzer anlegen und HTTP-Auth verwenden.
 location /zabbix/ {
-    # Steht in proxy_pass eine Variable, ersetzt Nginx den Pfad NICHT selbst -
-    # das Ziel bekaeme "/zabbix/zabbix.php" statt "/zabbix.php" und antwortete
-    # mit 404. Das Praefix muss darum von Hand weg.
-    rewrite ^/zabbix/(.*)$ /$1 break;
+    # Unser Praefix /zabbix/ gegen den ECHTEN Basispfad des Servers tauschen.
+    # Zabbix liegt je nach Installation unter /zabbix (Paketinstallation) oder
+    # direkt auf / (Container). ZABBIX_PATH kommt aus ZABBIX_URL und ist im
+    # zweiten Fall leer - dann bleibt schlicht /$1 stehen.
+    rewrite ^/zabbix/(.*)$ ${ZABBIX_PATH}/$1 break;
 
-    set $zbxui "${ZABBIX_URL}";
+    # WICHTIG: hier NUR schema://host, ohne Pfad. Steht ein Pfad in der
+    # Variablen, ist nicht vorhersagbar, ob Nginx die umgeschriebene Anfrage-URI
+    # noch weiterreicht. Ohne Pfad wird sie garantiert unveraendert uebernommen.
+    set $zbxui "${ZABBIX_ORIGIN}";
     proxy_pass $zbxui;
     proxy_set_header Host "${ZABBIX_HOST}";
     proxy_set_header X-Forwarded-Proto https;
@@ -48,10 +52,11 @@ location /zabbix/ {
 
     # Weiterleitungen von Zabbix auf unseren Pfad umbiegen, sonst springt die
     # Wand beim Anmelden aus dem Proxy heraus.
+    proxy_redirect ~^https?://[^/]+${ZABBIX_PATH}/(.*)$ /zabbix/$1;
     proxy_redirect ~^https?://[^/]+/(.*)$ /zabbix/$1;
 
     # Zabbix setzt Sitzungs-Cookies auf "/" - hier passend umschreiben.
-    proxy_cookie_path / /zabbix/;
+    proxy_cookie_path ${ZABBIX_PATH}/ /zabbix/;
 
     # Dashboards laden im Hintergrund nach; kein Zwischenspeicher.
     add_header Cache-Control "no-store" always;

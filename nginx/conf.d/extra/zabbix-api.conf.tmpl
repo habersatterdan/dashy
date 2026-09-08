@@ -30,7 +30,11 @@
 location = /api/zabbix {
     limit_except POST { deny all; }
 
-    set $zbx "${ZABBIX_URL}/api_jsonrpc.php";
+    # ZABBIX_BASE ist die bereinigte Basis (ohne Query, ohne .php-Datei) -
+    # eine aus der Adresszeile kopierte Dashboard-URL wuerde den Aufruf
+    # sonst auf der HTML-Seite landen lassen und Zabbix antwortet mit
+    # "You are not logged in" statt mit JSON.
+    set $zbx "${ZABBIX_BASE}/api_jsonrpc.php";
     proxy_pass $zbx;
     # Host muss der reine Hostname sein, nicht die komplette URL - sonst
     # antwortet Zabbix mit einem Fehler oder gar nicht.
