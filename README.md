@@ -324,6 +324,39 @@ Zeile einkommentieren.
 Die Rotation zeigt jetzt drei eigengestaltete Seiten:
 `/lage/` (60 s) → `/stoerungen/` (30 s) → `/wall/` (30 s).
 
+## Echte Websites auf der Wand — was geht und was nicht
+
+Zwei Hürden, unabhängig voneinander:
+
+**1. Einbetten wird blockiert.** Fremde Seiten senden `X-Frame-Options` oder
+`CSP: frame-ancestors`. Der Browser zeigt dann eine weiße Fläche — ohne
+Fehlermeldung. Lösung: die Seite über einen Nginx-Proxy unter der *eigenen*
+Adresse ausliefern (wie `/zabbix/`), dort lässt sich die Kopfzeile entfernen.
+Geht nur bei Seiten ohne Bot-Schutz und ohne Anmeldung.
+
+**2. Lesbarkeit — die härtere Hürde.** Websites sind für 60 cm Leseabstand
+gebaut. Die Wand steht 5 m weg. Ein 1:1-Abbild ist dort schlicht unlesbar,
+auch wenn das Einbetten technisch klappt.
+
+`/site/` löst das zweite Problem so weit es geht: Die Seite wird in einem
+**schmalen Viewport** gerendert — dort schalten responsive Layouts in die
+mobile Ansicht mit größeren Elementen — und das Ergebnis auf volle Wandbreite
+hochskaliert. Menüs und Cookiebanner lassen sich oben wegschneiden.
+
+```
+/site/?url=/zabbix/zabbix.php?action=dashboard.view%26dashboardid=1%26kiosk=1
+      &w=1100          Renderbreite: kleiner = größer skaliert
+      &top=90          Pixel oben abschneiden (Menü)
+      &title=Zabbix    Beschriftung
+      &reload=300      Sekunden bis Neuladen
+```
+
+> **Die ehrliche Empfehlung:** Selbst gezoomt bleibt eine fremde Statusseite
+> schlechter lesbar als dieselben Daten, aus dem Feed gezogen und groß
+> gerendert — genau das macht `/stoerungen/`. Nimm `/site/` für **eure eigenen**
+> Dashboards (Zabbix, Grafana), die ihr auf Wandgröße bauen könnt. Für fremde
+> Statusseiten ist der Feed der bessere Weg.
+
 ## Zabbix an der Wand
 
 Zwei Wege, beide ohne Token im Browser.

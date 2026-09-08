@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Website-Ansicht</title>
+<style>
+  /* Vollbild-Ansicht einer echten Website fuer die Wand.
+     Kernproblem: Webseiten sind fuer 60 cm Leseabstand gebaut, die Wand steht
+     5 m weg. Ein 1:1-Abbild ist dort unlesbar. Diese Seite rendert die Seite
+     darum in einem SCHMALEN Viewport (dort schaltet responsives Layout in die
+     mobile Ansicht mit groesseren Elementen) und skaliert das Ergebnis auf die
+     volle Wandbreite hoch. Optional wird ein Bereich herausgeschnitten. */
+  html,body{margin:0;height:100%;background:#0d0d0d;overflow:hidden;cursor:none}
+  #clip{position:absolute;inset:0;overflow:hidden}
+  iframe{position:absolute;border:0;background:#fff;transform-origin:0 0}
+  #err{position:absolute;inset:0;display:none;place-content:center;text-align:center;
+       color:#c3c2b7;font:16px/1.6 "Segoe UI",system-ui,sans-serif;padding:40px}
+  #err b{color:#fab219;font-size:22px;display:block;margin-bottom:10px}
+  #label{position:absolute;left:0;right:0;top:0;padding:8px 20px;z-index:5;
+         background:linear-gradient(#0d0d0dcc,#0d0d0d00);color:#fff;
+         font:600 15px/1.2 "Segoe UI",system-ui,sans-serif;letter-spacing:.08em;
+         text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="label"></div>
+<div id="clip"><iframe id="f" referrerpolicy="no-referrer"></iframe></div>
+<div id="err"><div><b>Seite lässt sich nicht einbetten</b>
+  <span id="ereason"></span></div></div>
+<script>
+/* Aufruf:
+     /site/?url=/zabbix/zabbix.php?...&w=1100&x=1.7&top=90&title=Zabbix
+
+   url    Adresse. NUR eigene oder ueber Nginx gespiegelte Adressen -
+          fremde Seiten senden X-Frame-Options und bleiben leer (siehe unten).
+   w      Breite, in der gerendert wird (Standard 1100). Kleiner = groesser
+          skaliert = besser lesbar, aber weniger Inhalt.
+   x      Zusaetzlicher Zoomfaktor (Standard: automatisch aus Fensterbreite/w).
+   top    Wieviele Pixel oben abgeschnitten werden (Menue, Cookiebanner).
+   left   dito links.
+   title  Beschriftung oben. Leer = keine.
+   reload Sekunden bis zum Neuladen (Standard 300).
+*/
+const qs   = new URLSearchParams(location.search);
+const url  = qs.get('url') || '';
+const W    = parseInt(qs.get('w'), 10)   || 1100;
+const TOP  = parseInt(qs.get('top'), 10)  || 0;
+const LEFT = parseInt(qs.get('left'), 10) || 0;
+const RELOAD = (parseInt(qs.get('reload'), 10) || 300) * 1000;
+const title  = qs.get('title') || '';
+
+const f = document.getElementById('f');
+document.getElementById('label').textContent = title;
+if (!title) document.getElementById('label').style.display = 'none';
+
+function fail(reason){
+  document.getElementById('err').style.display = 'grid';
+  document.getElementById('ereason').textContent = reason;
+  document.getElementById('clip').style.display = 'none';
+}
+
+if (!url){
+  fail('Kein ?url= angegeben.');
+} else if (/^https?:\/\//i.test(url) && !url.startsWith(location.origin)){
+  /* Fremde Adresse: Der Browser blockt die Einbettung wegen X-Frame-Options
+     bzw. CSP frame-ancestors - wortlos, als weisse Flaeche. Das hier zu
+     versuchen wuerde nur eine leere Wand ergeben, also sagen wir es lieber. */
+  fail('Fremde Adressen senden X-Frame-Options und lassen sich nicht einbetten. '
+     + 'Lege in nginx/conf.d/extra/ einen Proxy an (wie /zabbix/) und rufe die '
+     + 'Seite darüber unter eigener Adresse auf.');
+} else {
+  const zoom = parseFloat(qs.get('x')) || (window.innerWidth / W);
+  const H = Math.ceil((window.innerHeight / zoom) + TOP);
+  f.style.width  = W + 'px';
+  f.style.height = H + 'px';
+  f.style.transform = `scale(${zoom}) translate(${-LEFT}px, ${-TOP}px)`;
+  f.src = url;
+  setInterval(() => { f.src = url; }, RELOAD);
+}
+</script>
+</body>
+</html>
