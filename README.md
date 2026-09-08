@@ -437,6 +437,7 @@ Einrichten:
 | iframe **leer, keine Fehlermeldung** | direkt auf `https://zabbix…` eingebettet statt über `/zabbix/` | immer `/zabbix/…` verwenden — nur dort wird `X-Frame-Options` entfernt |
 | `/zabbix/` → **404** | `zabbix-ui.conf` nicht gerendert oder nginx nicht neu gestartet | `./scripts/render-config.py && ./scripts/update.sh` |
 | API liefert **HTML** statt JSON (`You are not logged in`) | in `ZABBIX_URL` steht eine komplette Dashboard-URL statt der Basis | nur `http://server.firma.local/zabbix` eintragen |
+| API: **No permissions to call** | Token gültig, aber die *Rolle* erlaubt den Aufruf nicht | *Users → User roles →* Rolle: `API` auf **Enabled**, Allow list leer (= alle Methoden); dazu *Permissions* mit Read auf die Hostgruppen |
 
 `ZABBIX_URL` allein reicht fürs Einbetten. Der API-Token wird nur für die
 Problemliste auf `/lage/` gebraucht — deshalb sind es zwei getrennte Dateien

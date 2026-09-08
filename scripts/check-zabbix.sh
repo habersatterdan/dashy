@@ -119,9 +119,11 @@ fi
 # --- Schicht 5: API ----------------------------------------------------------
 step "5. API-Zugriff (JSON-RPC)"
 if [ -n "${TOKEN}" ] && [ "${TOKEN}" != "REPLACE_WITH_ZABBIX_API_TOKEN" ]; then
+  # apiinfo.version wird BEWUSST ohne Authorization aufgerufen: Zabbix lehnt
+  # diese eine Methode mit Anmeldung ab ("Invalid params"). Sie beweist damit
+  # nur, dass die API antwortet - ueber den Token sagt sie nichts.
   RESP="$(curl -sk -m 10 -X POST "${BASE}/api_jsonrpc.php" \
     -H 'Content-Type: application/json-rpc' \
-    -H "Authorization: Bearer ${TOKEN}" \
     -d '{"jsonrpc":"2.0","method":"apiinfo.version","params":{},"id":1}' 2>/dev/null)"
   case "${RESP}" in
     *'"result"'*) ok "Zabbix-API antwortet: Version $(echo "${RESP}" | sed -nE 's/.*"result":"([^"]+)".*/\1/p')" ;;
@@ -143,7 +145,17 @@ if [ -n "${TOKEN}" ] && [ "${TOKEN}" != "REPLACE_WITH_ZABBIX_API_TOKEN" ]; then
     -d '{"jsonrpc":"2.0","method":"problem.get","params":{"limit":1},"id":1}' 2>/dev/null)"
   case "${RESP2}" in
     *'"result"'*) ok "Token gueltig, problem.get funktioniert" ;;
-    *'"error"'*)  fail "Token abgelehnt: $(echo "${RESP2}" | sed -nE 's/.*"data":"([^"]*)".*/\1/p')" ;;
+    *'No permissions to call'*)
+      fail "Token abgelehnt: keine Berechtigung fuer problem.get"
+      echo "         Der Token ist gueltig, aber seine ROLLE erlaubt den Aufruf"
+      echo "         nicht. In Zabbix pruefen:"
+      echo "           Users -> User roles -> <Rolle des Token-Benutzers>"
+      echo "             * 'API' auf Enabled"
+      echo "             * API methods: 'Allow list' leer lassen (= alle) oder"
+      echo "               problem.get, host.get, trigger.get eintragen"
+      echo "           Users -> Users -> <Benutzer> -> Permissions:"
+      echo "             mindestens Read auf die relevanten Hostgruppen" ;;
+    *'"error"'*)  fail "Token abgelehnt: ${RESP2}" ;;
     *'<html'*|*'<!DOCTYPE html'*)
       fail "auch hier HTML statt JSON - siehe Hinweis oben zu ZABBIX_URL." ;;
     *)            fail "problem.get unerwartet: ${RESP2}" ;;
@@ -179,8 +191,9 @@ case "${CODE}" in
   200|302|301) ok "/zabbix/ antwortet HTTP ${CODE}" ;;
   404) fail "/zabbix/ -> 404. Der Proxy ist nicht geladen (siehe oben), oder"
        echo "         nginx wurde nach dem Rendern nicht neu gestartet." ;;
-  502|504) fail "/zabbix/ -> ${CODE}. nginx erreicht Zabbix nicht - fast immer"
-       echo "         die Namensaufloesung im Container (Schritt 2)." ;;
+  500|502|504) fail "/zabbix/ -> ${CODE}. nginx erreicht Zabbix nicht."
+       echo "         Ist Schritt 2 im Container rot, ist DAS die Ursache -"
+       echo "         nicht der Proxy. Vollen FQDN in ZABBIX_URL eintragen." ;;
   000) fail "/zabbix/ nicht erreichbar - nginx antwortet nicht."
        echo "         Pruefen:  docker compose ps   und   docker compose logs nginx"
        echo "         Haeufigste Ursache: eine .conf mit offenen Platzhaltern,"
