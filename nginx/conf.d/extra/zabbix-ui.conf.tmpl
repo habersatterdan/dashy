@@ -1,0 +1,58 @@
+# -----------------------------------------------------------------------------
+# Zabbix-Oberflaeche fuer eingebettete Dashboards.
+#
+# Braucht NUR ZABBIX_URL - keinen API-Token. Deshalb eine eigene Datei: fehlt
+# der Token, wird nur zabbix-api.conf uebersprungen, das Einbetten von
+# Dashboards funktioniert trotzdem.
+#
+# WARUM DER PROXY NOETIG IST: Zabbix sendet "X-Frame-Options: SAMEORIGIN".
+# Ein <iframe> auf https://zabbix.example.local bleibt darum von unserer Wand
+# aus leer - der Browser blockt es wortlos. Ueber diesen Proxy laeuft Zabbix
+# unter UNSERER Adresse, also same-origin, und die Kopfzeile wird zusaetzlich
+# entfernt. Erst dadurch wird das Bild sichtbar.
+#
+# EINRICHTEN:
+#   1. ZABBIX_URL in config/endpoints.env setzen
+#   2. ./scripts/render-config.py
+#   3. ./scripts/update.sh   (oder: docker compose restart nginx)
+#   4. Pruefen:  ./scripts/check-zabbix.sh
+# -----------------------------------------------------------------------------
+
+# --- 2. Zabbix-Oberflaeche fuer eingebettete Dashboards ----------------------
+#     Aufruf an der Wand z. B.:
+#     /zabbix/zabbix.php?action=dashboard.view&dashboardid=42&kiosk=1
+#
+#     kiosk=1 blendet Menue und Kopfzeile aus - genau richtig fuer die Wand.
+#     Damit ohne Anmeldung etwas zu sehen ist, in Zabbix EINES von beiden:
+#       a) Dashboard mit dem Benutzer "guest" teilen (Sharing -> Public), oder
+#       b) einen eigenen Nur-Lese-Benutzer anlegen und HTTP-Auth verwenden.
+location /zabbix/ {
+    # Steht in proxy_pass eine Variable, ersetzt Nginx den Pfad NICHT selbst -
+    # das Ziel bekaeme "/zabbix/zabbix.php" statt "/zabbix.php" und antwortete
+    # mit 404. Das Praefix muss darum von Hand weg.
+    rewrite ^/zabbix/(.*)$ /$1 break;
+
+    set $zbxui "${ZABBIX_URL}";
+    proxy_pass $zbxui;
+    proxy_set_header Host "${ZABBIX_HOST}";
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_ssl_server_name on;
+    proxy_ssl_verify off;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 60s;
+
+    # Der eigentliche Trick: Zabbix' Einbettungssperre entfernen.
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header Content-Security-Policy;
+
+    # Weiterleitungen von Zabbix auf unseren Pfad umbiegen, sonst springt die
+    # Wand beim Anmelden aus dem Proxy heraus.
+    proxy_redirect ~^https?://[^/]+/(.*)$ /zabbix/$1;
+
+    # Zabbix setzt Sitzungs-Cookies auf "/" - hier passend umschreiben.
+    proxy_cookie_path / /zabbix/;
+
+    # Dashboards laden im Hintergrund nach; kein Zwischenspeicher.
+    add_header Cache-Control "no-store" always;
+}

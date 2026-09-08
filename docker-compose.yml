@@ -63,6 +63,11 @@ services:
       - ./shots:/usr/share/nginx/html/shots:ro
       # Messdaten der Sonde; Nginx liefert nur probe.json aus.
       - ./state:/usr/share/nginx/html/data:ro
+    # Notausgang, falls der Container einen internen Namen nicht aufloest
+    # (Dockers DNS kennt die Suchdomaene des Firmennetzes nicht). Dann hier
+    # fest eintragen - ./scripts/check-zabbix.sh sagt, ob das noetig ist:
+    # extra_hosts:
+    #   - "zabbix.firma.local:10.0.0.42"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s

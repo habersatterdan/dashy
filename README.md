@@ -413,15 +413,34 @@ Weg zu echtem Inhalt.
 
 Einrichten:
 
-1. `ZABBIX_URL` in `config/endpoints.env`, `ZABBIX_API_TOKEN` in
-   `config/secrets.env` (Zabbix: *Users → API tokens*, nur-lesende Rolle genügt)
+1. `ZABBIX_URL` in `config/endpoints.env` — **immer der volle Name (FQDN)**,
+   nicht `zabbix`, sondern `zabbix.firma.local`. Notfalls die IP.
+   `ZABBIX_API_TOKEN` in `config/secrets.env` (Zabbix: *Users → API tokens*,
+   nur-lesende Rolle genügt) — nur für die Problemliste, **nicht** fürs
+   Einbetten von Dashboards.
 2. `./scripts/update.sh`
-3. In Zabbix das Dashboard bauen und die `dashboardid` aus der URL merken
-4. Damit ohne Anmeldung etwas zu sehen ist, **eines von beiden**:
+3. **`./scripts/check-zabbix.sh`** — prüft DNS auf dem Pi, DNS im Container,
+   Port, TLS, X-Frame-Options, API-Token und den Proxy einzeln. Bei der ersten
+   roten Zeile ansetzen; alles darunter ist Folgefehler.
+4. In Zabbix das Dashboard bauen und die `dashboardid` aus der URL merken
+5. Damit ohne Anmeldung etwas zu sehen ist, **eines von beiden**:
    Dashboard mit dem Benutzer `guest` teilen (*Sharing → Public*), oder einen
    Nur-Lese-Benutzer anlegen und HTTP-Auth verwenden
-5. In `assets/signage.html` die Zabbix-Zeile einkommentieren und die
+6. In `assets/signage.html` die Zabbix-Zeile einkommentieren und die
    `dashboardid` eintragen
+
+### Die drei Stellen, an denen es typischerweise scheitert
+
+| Symptom | Ursache | Behebung |
+|---------|---------|----------|
+| `/zabbix/` → **502** | nginx löst den Namen im Container nicht auf | FQDN statt Kurzname; sonst `extra_hosts` beim Dienst `nginx` in `docker-compose.yml` |
+| iframe **leer, keine Fehlermeldung** | direkt auf `https://zabbix…` eingebettet statt über `/zabbix/` | immer `/zabbix/…` verwenden — nur dort wird `X-Frame-Options` entfernt |
+| `/zabbix/` → **404** | `zabbix-ui.conf` nicht gerendert oder nginx nicht neu gestartet | `./scripts/render-config.py && ./scripts/update.sh` |
+
+`ZABBIX_URL` allein reicht fürs Einbetten. Der API-Token wird nur für die
+Problemliste auf `/lage/` gebraucht — deshalb sind es zwei getrennte Dateien
+(`zabbix-ui.conf.tmpl` / `zabbix-api.conf.tmpl`). Fehlt der Token, wird nur die
+API-Datei übersprungen, die Dashboards laufen trotzdem.
 
 Direkt prüfen — im Browser des Pi:
 `https://<pi>/zabbix/zabbix.php?action=dashboard.view&dashboardid=1&kiosk=1`
