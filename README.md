@@ -433,7 +433,7 @@ Einrichten:
 
 | Symptom | Ursache | Behebung |
 |---------|---------|----------|
-| `/zabbix/` → **502** | nginx löst den Namen im Container nicht auf | FQDN statt Kurzname; sonst `extra_hosts` beim Dienst `nginx` in `docker-compose.yml` |
+| `/zabbix/` → **500 / 502** | nginx löst den Namen im Container nicht auf | FQDN statt Kurzname in `ZABBIX_URL`; hilft das nicht: `EXTRA_HOST_1=name.firma.local:10.0.0.42` in `.env` |
 | iframe **leer, keine Fehlermeldung** | direkt auf `https://zabbix…` eingebettet statt über `/zabbix/` | immer `/zabbix/…` verwenden — nur dort wird `X-Frame-Options` entfernt |
 | `/zabbix/` → **404** | `zabbix-ui.conf` nicht gerendert oder nginx nicht neu gestartet | `./scripts/render-config.py && ./scripts/update.sh` |
 | API liefert **HTML** statt JSON (`You are not logged in`) | in `ZABBIX_URL` steht eine komplette Dashboard-URL statt der Basis | nur `http://server.firma.local/zabbix` eintragen |

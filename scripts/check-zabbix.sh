@@ -80,9 +80,17 @@ if docker compose ps --status running --services 2>/dev/null | grep -qx nginx; t
   else
     fail "im nginx-Container: '${HOST}' loest nicht auf"
     echo "         Der Container nutzt Dockers DNS, nicht die Suchdomaene des Pi."
-    echo "         Ausweg: in docker-compose.yml beim Dienst nginx ergaenzen:"
-    echo "             extra_hosts:"
-    echo "               - \"${HOST}:<IP-Adresse>\""
+    IP="$(getent hosts "${HOST}" 2>/dev/null | awk '{print $1; exit}')"
+    FQ="$(getent hosts "${HOST}" 2>/dev/null | awk '{print $2; exit}')"
+    if [ -n "${FQ}" ] && [ "${FQ}" != "${HOST}" ]; then
+      echo "         Bester Weg: in config/endpoints.env den vollen Namen nutzen:"
+      echo "             ZABBIX_URL=http://${FQ}$(echo "${BASE}" | sed -E 's#^[a-z]+://[^/]*##')"
+    fi
+    if [ -n "${IP}" ]; then
+      echo "         Falls auch das nicht reicht: in .env eintragen (kein YAML noetig)"
+      echo "             EXTRA_HOST_1=${FQ:-${HOST}}:${IP}"
+      echo "         danach ./scripts/update.sh"
+    fi
   fi
 else
   warn "nginx laeuft nicht - Containerpruefungen uebersprungen."

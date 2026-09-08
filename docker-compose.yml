@@ -63,11 +63,15 @@ services:
       - ./shots:/usr/share/nginx/html/shots:ro
       # Messdaten der Sonde; Nginx liefert nur probe.json aus.
       - ./state:/usr/share/nginx/html/data:ro
-    # Notausgang, falls der Container einen internen Namen nicht aufloest
-    # (Dockers DNS kennt die Suchdomaene des Firmennetzes nicht). Dann hier
-    # fest eintragen - ./scripts/check-zabbix.sh sagt, ob das noetig ist:
-    # extra_hosts:
-    #   - "zabbix.firma.local:10.0.0.42"
+    # Notausgang, wenn der Container einen internen Namen nicht aufloest:
+    # Dockers DNS kennt die Suchdomaene des Firmennetzes nicht. Statt YAML zu
+    # bearbeiten in .env setzen, z. B.
+    #     EXTRA_HOST_1=zabbix.firma.local:10.0.0.42
+    # Der Vorgabewert ist ein Blindeintrag: Docker verlangt hier eine gueltige
+    # Zeile, und "leer" ist keine.
+    extra_hosts:
+      - "${EXTRA_HOST_1:-nicht-gesetzt.invalid:0.0.0.0}"
+      - "${EXTRA_HOST_2:-nicht-gesetzt2.invalid:0.0.0.0}"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
@@ -191,6 +195,10 @@ services:
       - PROBE_DNS_SUFFIX=${PROBE_DNS_SUFFIX:-}
       - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
+    # Gleiche Kruecke wie bei nginx: interne Namen, die Dockers DNS nicht kennt.
+    extra_hosts:
+      - "${EXTRA_HOST_1:-nicht-gesetzt.invalid:0.0.0.0}"
+      - "${EXTRA_HOST_2:-nicht-gesetzt2.invalid:0.0.0.0}"
     networks:
       - signage
     logging:
