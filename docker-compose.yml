@@ -63,6 +63,8 @@ services:
       - ./shots:/usr/share/nginx/html/shots:ro
       # Messdaten der Sonde; Nginx liefert nur probe.json aus.
       - ./state:/usr/share/nginx/html/data:ro
+      # Seitenliste der Wand; Nginx liefert daraus nur pages.txt aus.
+      - ./config:/usr/share/nginx/html/wandconfig:ro
     # Notausgang, wenn der Container einen internen Namen nicht aufloest:
     # Dockers DNS kennt die Suchdomaene des Firmennetzes nicht. Statt YAML zu
     # bearbeiten in .env setzen, z. B.

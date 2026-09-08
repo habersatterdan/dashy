@@ -1,0 +1,45 @@
+# =============================================================================
+# WAS DIE WAND DER REIHE NACH ZEIGT
+# -----------------------------------------------------------------------------
+# Eine Zeile pro Seite:      Name | Adresse | Sekunden
+#
+# Sekunden weglassen = Standarddauer (30 s).
+# Reihenfolge = Reihenfolge auf der Wand. Zeile loeschen oder mit # davor
+# auskommentieren blendet eine Seite aus.
+#
+# Kopieren:  cp config/pages.txt.example config/pages.txt
+# Die echte Datei ist gitignored und ueberlebt jedes "git reset --hard" -
+# anders als eine Aenderung direkt in assets/signage.html.
+# Nach dem Bearbeiten genuegt: docker compose restart nginx   (kein Rebuild)
+# =============================================================================
+
+# --- Eigene Wandseiten --------------------------------------------------------
+Betriebslage      | /lage/         | 60
+Störungen         | /stoerungen/   | 30
+Sicherheit        | /wall/         | 30
+
+# --- Zabbix-Dashboards --------------------------------------------------------
+# WICHTIG - drei Regeln:
+#   1. Immer mit /zabbix/ beginnen, NIE mit http://server/... - nur ueber den
+#      Proxy laeuft Zabbix unter unserer Adresse (siehe README).
+#   2. &kiosk=1 anhaengen: blendet Menue und Kopfzeile aus.
+#   3. Das Dashboard muss mit dem Benutzer "guest" geteilt sein
+#      (Zabbix: Dashboard -> Sharing -> Public), sonst kommt der Login.
+#
+# from/to steuern den Zeitraum, z. B. from=now-1h&to=now.
+# Die dashboardid steht in der Zabbix-URL.
+
+Zabbix 419        | /zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1                 | 60
+Zabbix 420        | /zabbix/zabbix.php?action=dashboard.view&dashboardid=420&from=now-1h&to=now&kiosk=1 | 60
+Zabbix 421        | /zabbix/zabbix.php?action=dashboard.view&dashboardid=421&from=now-1h&to=now&kiosk=1 | 60
+Zabbix 422        | /zabbix/zabbix.php?action=dashboard.view&dashboardid=422&from=now-1h&to=now&kiosk=1 | 60
+Zabbix 423        | /zabbix/zabbix.php?action=dashboard.view&dashboardid=423&from=now-1h&to=now&kiosk=1 | 60
+
+# Ist die Schrift aus der Entfernung zu klein, dieselbe Seite ueber /site/
+# hochskaliert einbinden (w = Renderbreite, kleiner = groesser dargestellt):
+# Zabbix 419 gross | /site/?title=Zabbix&w=1280&url=%2Fzabbix%2Fzabbix.php%3Faction%3Ddashboard.view%26dashboardid%3D419%26kiosk%3D1 | 60
+
+# --- Dashy-Seiten (bleiben erreichbar, laufen standardmaessig nicht mit) -------
+# Übersicht       | /              | 30
+# Security        | /security      | 30
+# Updates         | /updates       | 30

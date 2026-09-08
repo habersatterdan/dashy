@@ -449,11 +449,40 @@ Direkt prüfen — im Browser des Pi:
 
 `kiosk=1` blendet Menü und Kopfzeile aus.
 
-### Was wie lange läuft
+### Was wie lange läuft — `config/pages.txt`
 
-Die Rotation hat jetzt pro Seite eine eigene Standzeit (`secs` in
-`assets/signage.html`): Betriebslage 60 s, Alerts 30 s, der Rest 30 s. Seite
-ausbauen = Zeile löschen oder auskommentieren.
+Die Seitenliste steht **nicht** im Quelltext, sondern in `config/pages.txt`.
+Der Grund: `assets/signage.html` ist versioniert — eine Änderung dort wäre beim
+nächsten `git reset --hard` weg. Diese Datei ist gitignored und überlebt jedes
+Update.
+
+```
+# Name | Adresse | Sekunden
+Betriebslage | /lage/       | 60
+Störungen    | /stoerungen/ | 30
+Zabbix 419   | /zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1 | 60
+```
+
+Sekunden weglassen = 30 s. Zeile löschen oder `#` davor blendet eine Seite aus.
+Nach dem Bearbeiten genügt `docker compose restart nginx` — kein Neubau.
+
+Ist die Datei nicht lesbar oder komplett auskommentiert, greift eine
+eingebaute Rückfallebene (Betriebslage / Störungen / Sicherheit). Eine leere
+Datei darf die Wand nicht schwarz schalten.
+
+### Mehrere Zabbix-Dashboards
+
+Einfach mehrere Zeilen. Drei Regeln:
+
+1. **Immer mit `/zabbix/` beginnen**, nie mit `http://server/…` — nur über den
+   Proxy läuft Zabbix unter eurer Adresse.
+2. **`&kiosk=1` anhängen** — blendet Menü und Kopfzeile aus.
+3. Das Dashboard muss mit dem Benutzer `guest` geteilt sein
+   (*Dashboard → Sharing → Public*), sonst kommt der Login.
+
+`from=now-1h&to=now` steuert den Zeitraum und darf mit dran. Ist die Schrift aus
+fünf Metern zu klein, dieselbe Seite über `/site/` hochskalieren — Beispielzeile
+steht in `pages.txt.example`.
 
 ## CVE-Watcher: Webhook bei relevanten Schwachstellen
 

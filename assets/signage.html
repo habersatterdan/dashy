@@ -46,40 +46,19 @@
     const RELOAD_MS = (parseInt(qs.get('reload'), 10) || 300) * 1000;  // 5min
     const SHIFT_MS  = 90 * 1000;                                       // burn-in
 
-    // Seitenliste der Wand. "secs" ueberschreibt die Standarddauer - die
-    // Betriebslage ist die eigentliche Botschaft und bleibt darum am laengsten
-    // stehen; Nachrichtenseiten laufen kuerzer durch.
-    // Eine Seite ausbauen: Zeile loeschen oder auskommentieren (//).
-    const PAGES = [
+    // Seitenliste. Sie steht NICHT hier, sondern in config/pages.txt - diese
+    // Datei ist versioniert, eine Aenderung darin waere beim naechsten
+    // "git reset --hard" weg. Nginx liefert die Liste unter /config/pages.txt
+    // aus; nach dem Bearbeiten genuegt "docker compose restart nginx".
+    //
+    // Format je Zeile:   Name | Adresse | Sekunden
+    //
+    // Diese Liste hier ist nur die Rueckfallebene, falls die Datei fehlt oder
+    // unlesbar ist - die Wand soll auch dann etwas zeigen.
+    let PAGES = [
       { name: 'Betriebslage', url: '/lage/',       secs: 60 },
       { name: 'Störungen',    url: '/stoerungen/', secs: 30 },
       { name: 'Sicherheit',   url: '/wall/',       secs: 30 },
-
-      // Die Dashy-Seiten bleiben erreichbar, laufen aber nicht mehr in der
-      // Rotation mit: Dashys RSS-Widget stapelt alle Meldungen als Fliesstext
-      // untereinander - auf einer Wand aus fuenf Metern unlesbar. Die drei
-      // Seiten oben zeigen dieselben Quellen, nur aufbereitet.
-      // { name: 'Übersicht', url: '/' },
-      // { name: 'Security',  url: '/security' },
-      // { name: 'Updates',   url: '/updates' },
-
-      // --- Eigene Zabbix-Dashboards --------------------------------------
-      // Einkommentieren, sobald ./scripts/check-zabbix.sh gruen ist.
-      // dashboardid aus der Zabbix-URL uebernehmen; kiosk=1 blendet Menue und
-      // Kopfzeile aus. Das Dashboard muss mit dem Benutzer "guest" geteilt
-      // sein (Zabbix: Dashboard -> Sharing -> Public), sonst kommt der Login.
-      //
-      // Direkt (scharfe Darstellung, Zabbix-eigene Schriftgroessen):
-      // { name: 'Zabbix', secs: 60,
-      //   url: '/zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1' },
-      //
-      // Alternativ ueber /site/ hochskaliert, falls die Schrift aus der
-      // Entfernung zu klein ist (w = Renderbreite, kleiner = groesser):
-      // { name: 'Zabbix', secs: 60,
-      //   url: '/site/?title=Zabbix&w=1280&url=' + encodeURIComponent(
-      //     '/zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1') },
-      //
-      // Mehrere Dashboards? Einfach mehrere Zeilen mit anderer dashboardid.
     ];
 
     const frame = document.getElementById('frame');
@@ -87,9 +66,44 @@
     const pageEl = document.getElementById('page');
     const dotsEl = document.getElementById('dots');
 
-    PAGES.forEach(() => dotsEl.insertAdjacentHTML('beforeend', '<span></span>'));
-    const dots = [...dotsEl.children];
+    let dots = [];
     let rotTimer = null;   // vor show(0) deklariert: scheduleNext greift darauf zu
+
+    function buildDots() {
+      dotsEl.innerHTML = '';
+      PAGES.forEach(() => dotsEl.insertAdjacentHTML('beforeend', '<span></span>'));
+      dots = [...dotsEl.children];
+    }
+
+    // "Name | Adresse | Sekunden", # ist Kommentar. Bewusst simpel gehalten:
+    // die Datei bearbeitet jemand im Flur per SSH, nicht in einer IDE.
+    function parsePages(text) {
+      const out = [];
+      for (const line of text.split('\n')) {
+        const l = line.trim();
+        if (!l || l.startsWith('#')) continue;
+        const parts = l.split('|').map(x => x.trim());
+        if (parts.length < 2 || !parts[1]) continue;
+        const secs = parseInt(parts[2], 10);
+        out.push({ name: parts[0] || parts[1],
+                   url: parts[1],
+                   secs: Number.isFinite(secs) && secs > 0 ? secs : undefined });
+      }
+      return out;
+    }
+
+    async function loadPages() {
+      try {
+        const r = await fetch('/config/pages.txt?t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const list = parsePages(await r.text());
+        // Eine leere oder komplett auskommentierte Datei darf die Wand nicht
+        // schwarz schalten - dann bleibt die Rueckfallebene stehen.
+        if (list.length) PAGES = list;
+      } catch (e) {
+        console.warn('config/pages.txt nicht lesbar, nutze Vorgabeliste:', e);
+      }
+    }
 
     let idx = 0;
     function show(i) {
@@ -99,7 +113,9 @@
       dots.forEach((d, n) => d.classList.toggle('on', n === idx));
       scheduleNext();
     }
-    show(0);
+    // Erst Liste holen, dann anzeigen. Ohne await stuenden Punkte und erste
+    // Seite noch fuer die Vorgabeliste.
+    loadPages().then(() => { buildDots(); show(0); });
 
     // Weiterschalten. Kein fester Takt mehr, sondern eine Kette von Timern -
     // nur so kann jede Seite ihre eigene Standzeit haben.
