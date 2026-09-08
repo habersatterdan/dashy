@@ -313,9 +313,44 @@ Cisco — jede mit klarem Status („✓ keine aktuelle Störung" / „! 2 aktue
 Meldungen") und den letzten Einträgen mit Alter. Beim Vorbeilaufen zählt die
 Frage *wer hat gerade ein Problem*, nicht die Chronologie aller Feeds.
 
-> **Frisch-Fenster:** Statusfeeds enthalten auch alte, längst behobene
-> Meldungen. Nur was jünger als 24 Stunden ist, gilt als laufende Störung. Ohne
-> das stünde die Wand dauerhaft auf Alarm — und niemand schaut mehr hin.
+**Frisch-Fenster je Zustand**, nicht pauschal:
+
+| Zustand | sichtbar für | warum |
+|---------|--------------|-------|
+| Ausfall / Beeinträchtigung | 36 h | ein nachts begonnener Incident wäre mit 24 h schon wieder unsichtbar |
+| Geplante Wartung | 12 h | sonst wochenlange Dauerwarnung |
+| Behoben / abgesagt | 4 h | nur so lange, bis klar ist, warum es vorhin rot war |
+
+**Einstufung über eine feste Rangfolge**, nicht über Stichwortzählen:
+abgesagt → behoben → geplant → Ausfall → Beeinträchtigung → Info. Das ist der
+eigentliche Trick — „Resolved: Major outage" enthält beide Begriffe, und ohne
+diese Reihenfolge stünde ein längst erledigter Ausfall dauerhaft rot an der
+Wand. Geprüft wird nur der **Titel**: Beschreibungstexte von Wartungsmeldungen
+enthalten fast immer „impact" oder „degraded" und würden jede geplante Wartung
+zum Ausfall machen.
+
+**Fehlt ein Zeitstempel**, wird die Meldung weder verworfen noch als aktuell
+angenommen, sondern als `? DATUM FEHLT` angezeigt — so wird ein Feed- oder
+Parserproblem sichtbar statt still.
+
+**Fällt eine Quelle aus**, steht das auf der Karte (`? QUELLE NICHT ERREICHBAR`
+mit Grund) und der globale Zustand wechselt auf *Datenlage unvollständig* —
+eine leere Karte darf nie wie „alles in Ordnung" aussehen. Der letzte
+erfolgreiche Stand kommt aus `localStorage`, ausdrücklich als Zwischenspeicher
+gekennzeichnet.
+
+> **Wortwahl mit Absicht:** Die Wand sagt „Keine frische aktive Meldung", nicht
+> „alles läuft". Die öffentlichen Feeds decken nur breit wirksame Störungen ab;
+> was nur euren Tenant oder eine Region trifft, steht in Service Health. Die
+> Wand darf keine Sicherheit behaupten, die die Quelle nicht hergibt.
+
+Die Einstufung ist getestet — Grenzfälle wie „Resolved: Major outage" oder
+„Maintenance cancelled due to ongoing incident" sieht man einer Seite im
+Browser nicht an:
+
+```bash
+node scripts/test-stoerungen.mjs
+```
 
 Die Dashy-Seiten (`/`, `/security`, `/updates`) bleiben erreichbar, laufen aber
 nicht mehr in der Rotation mit. Wieder aufnehmen: in `assets/signage.html` die
