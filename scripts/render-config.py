@@ -138,8 +138,25 @@ def main() -> int:
         target = tmpl.with_suffix("")          # foo.yml.tmpl -> foo.yml
         rel = target.relative_to(ROOT)
 
+        # Ein ungenutzter Einbett-Platz ist kein Fehler, sondern der
+        # Normalfall - dafuer gibt es vier Vorlagen. Nur melden, was jemand
+        # halb ausgefuellt hat.
+        slot = re.match(r"^embed(\d+)\.conf$", target.name)
+        if slot:
+            k = f"EMBED{slot.group(1)}"
+            if not values.get(k + "_SLUG") and not values.get(k + "_URL"):
+                continue
+
         for n in unresolved:
-            unresolved_total.setdefault(n, []).append(str(rel))
+            # Abgeleitete Namen (_HOST/_ORIGIN/_PATH/_BASE) stehen in keiner
+            # Datei - der Nutzer soll die zugrunde liegende _URL eintragen.
+            for suffix in ("_HOST", "_ORIGIN", "_PATH", "_BASE"):
+                if n.endswith(suffix):
+                    n = n[: -len(suffix)] + "_URL"
+                    break
+            unresolved_total.setdefault(n, [])
+            if str(rel) not in unresolved_total[n]:
+                unresolved_total[n].append(str(rel))
 
         if args.check:
             print(f"  prüfe  {rel}  ({len(used)} Platzhalter, {len(unresolved)} offen)")

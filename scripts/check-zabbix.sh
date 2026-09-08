@@ -187,7 +187,11 @@ else
   warn "zabbix-api.conf fehlt - ohne gueltigen ZABBIX_API_TOKEN wird sie"
   echo "         bewusst nicht geschrieben. Dashboards gehen trotzdem."
 fi
-for f in nginx/conf.d/extra/zabbix-ui.conf nginx/conf.d/extra/zabbix-api.conf; do
+for f in nginx/conf.d/extra/*.conf; do
+  [ -f "$f" ] || continue
+  case "$f" in *embed*) ok "$(basename "$f") gerendert (weiteres Backend)";; esac
+done
+for f in nginx/conf.d/extra/*.conf; do
   [ -f "$f" ] && grep -q '\${' "$f" && {
     fail "$f enthaelt offene Platzhalter - nginx startet damit nicht."
     echo "         ./scripts/render-config.py erneut ausfuehren."; }

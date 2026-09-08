@@ -6,52 +6,141 @@ Pi OS 64-bit)** with Docker + Docker Compose, behind an HTTPS Nginx reverse
 proxy, auto-updated by Watchtower, and displayed in Chromium **kiosk mode** on
 TVs, **Yealink MeetingBoard** and **Teams Rooms** browsers.
 
-The wall auto-rotates four pages every 30 seconds, reloads every 5 minutes,
-recovers from idle/stall, and prevents screen burn-in — no user interaction.
+Die Wand rotiert selbstständig durch die konfigurierten Seiten, lädt regelmäßig
+neu, erholt sich von Hängern und beugt Einbrennen vor — ohne jede Bedienung.
 
 ```
 Raspberry Pi 5
-├─ Docker ── Dashy · Nginx (HTTPS) · Watchtower
-├─ Pages ── Operations · Network · Security · Executive
-└─ Auto rotation every 30s (Chromium kiosk)
+├─ Docker ─── Dashy · Nginx (HTTPS) · Watchtower · Sonde · CVE-Watcher
+├─ Seiten ─── Betriebslage · Anbieterstatus · Sicherheit · eigene Dashboards
+└─ Rotation ─ Chromium Kiosk, Standzeit je Seite konfigurierbar
 ```
 
-## Pages & widgets
+---
 
-| Page | Widgets |
-|------|---------|
-| **Operations** | Zabbix problems, M365 Health & Status, Internal status, Backup, VMware, Hyper-V, SQL, Clock, Weather, Floor status |
-| **Network** | Catalyst Center, Cisco ISE, Cisco Secure Access, Firewall, WAN monitoring, Grafana iframe, reachability |
-| **Security** | MSRC / Microsoft Security, Cisco Security advisories, Heise Security, BSI, general security news (RSS) |
-| **Executive** | System availability (Grafana), active alerts (Zabbix), service health, company KPIs |
-| **Störungen** | M365 & Azure status, Cisco Webex, Cloudflare, provider/ISP outage links (RSS) |
+## Wo trage ich was ein?
+
+**Die wichtigste Tabelle dieses Dokuments.** Alle Dateien unter `config/` sind
+gitignored und überleben jedes Update — im Quelltext ändert man nichts.
+
+| Ich will … | Datei | Danach |
+|---|---|---|
+| **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
+| **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
+| **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
+| **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |
+| **Eine Weboberfläche einbetten** (Grafana, PRTG, CheckMK …) | `config/endpoints.env` → `EMBED1_SLUG` + `EMBED1_URL` | `./scripts/update.sh` |
+| **Produkte für CVE-Meldungen wählen** | `config/watchlist.txt` | `docker compose restart cve-watcher` |
+| **Zeitzone, Intervalle, DNS-Krücken** | `.env` | `./scripts/update.sh` |
+
+Beim ersten Mal alle Vorlagen kopieren:
+
+```bash
+cd ~/dashy
+for f in endpoints.env secrets.env probes.txt pages.txt; do
+  [ -f config/$f ] || cp config/$f.example config/$f
+done
+chmod 600 config/secrets.env
+./scripts/update.sh
+```
+
+Prüfen, ob etwas fehlt: `./scripts/render-config.py` listet jeden Platzhalter
+ohne Wert und sagt, in welche Datei er gehört.
+
+---
+
+## Ein Dashboard sauber einbinden — in drei Schritten
+
+Gilt für **jedes** Backend: Zabbix, Grafana, PRTG, CheckMK, vCenter, ein Wiki.
+
+> **Warum es ohne Proxy nicht geht:** Fast alle diese Anwendungen senden
+> `X-Frame-Options: SAMEORIGIN` oder eine CSP mit `frame-ancestors`. Ein
+> `<iframe>` darauf bleibt von der Wand aus **leer — ohne Fehlermeldung**. Über
+> den Proxy läuft die Anwendung unter *eurer* Adresse (also same-origin), und
+> die Sperre wird zusätzlich entfernt. Das ist der ganze Trick.
+
+**Schritt 1 — Adresse hinterlegen** (`config/endpoints.env`):
+
+```bash
+# Zabbix ist vorkonfiguriert, dafür genügt:
+ZABBIX_URL=http://zabbix.firma.local/zabbix
+
+# Alles andere über die vier Einbett-Plätze:
+EMBED1_SLUG=grafana
+EMBED1_URL=https://grafana.firma.local
+```
+
+`SLUG` ist der Pfad, unter dem die Anwendung bei euch erscheint. **Immer den
+vollen Namen (FQDN)** eintragen — Kurznamen lösen im Container nicht auf. Nur
+die **Basisadresse**, keine kopierte URL aus der Adresszeile.
+
+**Schritt 2 — anwenden und prüfen:**
+
+```bash
+./scripts/update.sh
+./scripts/check-zabbix.sh          # prüft DNS, Port, TLS, Token, Proxy einzeln
+```
+
+Im Browser des Pi öffnen — hier wird sichtbar, ob es klappt:
+`https://<pi>/grafana/` bzw. `https://<pi>/zabbix/`
+
+**Schritt 3 — auf die Wand** (`config/pages.txt`):
+
+```
+# Name | Adresse | Sekunden
+Betriebslage | /lage/                                                            | 60
+Grafana      | /grafana/d/abc123/uebersicht?kiosk                                 | 60
+Zabbix Netz  | /zabbix/zabbix.php?action=dashboard.view&dashboardid=420&kiosk=1  | 60
+```
+
+Dann `docker compose restart nginx`. Fertig — kein Quelltext angefasst.
+
+### Die Vollbild-Parameter je Backend
+
+Ohne diese steht das Menü der Anwendung mit auf der Wand:
+
+| Backend | Parameter | Freigabe ohne Anmeldung |
+|---|---|---|
+| Zabbix | `&kiosk=1` | Dashboard → *Sharing → Public* (Benutzer `guest`) |
+| Grafana | `?kiosk` (bzw. `&kiosk`) | Dashboard → *Share → Snapshot*, oder anonymen Zugriff aktivieren |
+| CheckMK | Ansicht als „Dashboard" freigeben | Automation-User |
+| PRTG | „Public Map" anlegen | Map-URL ohne Login |
+
+Ohne Freigabe erscheint auf der Wand der Login der Anwendung — dann ist nicht
+der Proxy schuld.
+
+### Wenn es klemmt
+
+| Symptom | Ursache | Behebung |
+|---|---|---|
+| `/…/` → **500 / 502** | Container löst den Namen nicht auf | FQDN eintragen; hilft das nicht: `EXTRA_HOST_1=name.firma.local:10.0.0.42` in `.env` |
+| `/…/` → **404** | Datei nicht gerendert oder nginx nicht neu gestartet | `./scripts/render-config.py && ./scripts/update.sh` |
+| Seite **leer, keine Fehlermeldung** | direkt auf `https://server…` eingebettet statt über den Proxy | immer den Proxy-Pfad verwenden |
+| **Login** statt Dashboard | keine Freigabe in der Anwendung | siehe Tabelle oben |
+| Schrift **zu klein** aus 5 m | Anwendung für Schreibtisch gebaut | über `/site/?w=1280&url=…` hochskalieren |
 
 ## Quick start
 
 ```bash
 git clone <this-repo> ~/dashy && cd ~/dashy
-sudo ./scripts/install.sh              # installs docker, certs, stack, kiosk, backup cron
-cp .env.example .env                   # pick a profile (DASHY_PROFILE=enterprise|homelab), then edit
-$EDITOR profiles/$DASHY_PROFILE/conf.yml profiles/$DASHY_PROFILE/pages/*.yml   # replace DEINE-*/REPLACE_WITH_*/example.local
-docker compose restart dashy
+sudo ./scripts/install.sh          # Docker, Zertifikat, Stack, Kiosk, Backup-Cron
+
+# Die vier Dateien, in denen alles steht (siehe Tabelle oben):
+$EDITOR config/endpoints.env       # Adressen eurer Systeme
+$EDITOR config/secrets.env         # API-Token  (chmod 600)
+$EDITOR config/probes.txt          # was gemessen wird
+$EDITOR config/pages.txt           # was die Wand zeigt
+
+./scripts/update.sh                # rendern + Container neu erzeugen
+./scripts/check-zabbix.sh          # prüft die Anbindung Schicht für Schicht
 ```
 
-Open the wall at **`https://<pi-hostname>.local/signage/`** (the kiosk service
-opens it automatically at boot).
+Die Wand läuft unter **`https://<pi>/signage/`** — der Kiosk-Dienst öffnet sie
+beim Hochfahren von selbst. Einzelne Seiten direkt: `/lage/`, `/stoerungen/`,
+`/wall/`.
 
-## Layout
-
-```
-docker-compose.yml         Dashy + Nginx + Watchtower (health checks, restart policies)
-.env.example               All configurable placeholders (copy to .env), incl. DASHY_PROFILE
-profiles/<name>/conf.yml   Page 1 (Übersicht/Operations) + global app config, per profile
-profiles/<name>/pages/     Additional pages, per profile (see "Profiles" below)
-nginx/                     nginx.conf, conf.d/dashy.conf, certs/generate-cert.sh
-assets/                    signage.html (rotation kiosk wrapper), custom.css, tiles
-kiosk/                     kiosk.sh + systemd units (stack@boot, chromium kiosk)
-scripts/                   install.sh, backup.sh, restore.sh
-docs/                      INSTALL, UPDATE, BACKUP, TROUBLESHOOTING, MONITORING
-```
+**Für ein Update immer `./scripts/update.sh`** — ein bloßes `git pull` reicht
+nicht, siehe *Nach einem Update*.
 
 ## Profiles
 
@@ -99,31 +188,6 @@ user-data root — it never looks inside a `pages/` subfolder — so without tha
 - **/health** endpoint for Docker health checks and external monitoring.
 
 > Replace every `REPLACE_WITH_*` token and every `*.example.local` URL before going live.
-
-## Rotation & pages
-
-- Pages rotate **every 30 seconds**; the whole wall reloads **every 5 minutes**.
-- Override without editing files via query string:
-  `https://<host>/signage/?rotate=45&reload=600` (45 s rotation, 10 min reload).
-- Defaults live in `assets/signage.html` (`ROTATE_MS` / `RELOAD_MS`).
-
-### Remove a page from the rotation
-
-Edit the `PAGES` array in `assets/signage.html` and delete the line for the page:
-
-```js
-const PAGES = [
-  { name: 'Operations', url: '/' },
-  { name: 'Network',    url: '/network' },
-  { name: 'Security',   url: '/security' },
-  { name: 'Executive',  url: '/executive' },
-  { name: 'Störungen',  url: '/status' },   // delete this line to drop it
-];
-```
-
-To also remove it from Dashy's menu, delete its entry under `pages:` and
-`navLinks:` in `profiles/<name>/conf.yml`. Changes to `signage.html` take effect on the
-next reload; Dashy changes need `docker compose restart dashy`.
 
 ## Installing an internal (CA-issued) TLS certificate
 
@@ -203,7 +267,7 @@ also sofort, was fehlt, statt eine still kaputte Config zu bekommen. Mit
 `--check` läuft alles ohne zu schreiben, `--profile <name>` wählt ein anderes
 Profil.
 
-> Der Zabbix-API-Token landet über `nginx/conf.d/extra/zabbix.conf.tmpl` nur in
+> Der Zabbix-API-Token landet über `nginx/conf.d/extra/zabbix-api.conf.tmpl` nur in
 > der Nginx-Konfiguration im Container — er erreicht den Browser der Wand nie.
 
 ### Nach einem Update
@@ -397,9 +461,9 @@ hochskaliert. Menüs und Cookiebanner lassen sich oben wegschneiden.
 Zwei Wege, beide ohne Token im Browser.
 
 **1. Problemliste in der Betriebslage** — rechte Spalte von `/lage/`, mit
-Schweregrad und Standzeit. Kommt automatisch, sobald
-`nginx/conf.d/extra/zabbix.conf` gerendert ist. Ist sie das nicht, bleibt die
-Spalte einfach weg.
+Schweregrad und Standzeit. Kommt automatisch, sobald `zabbix-api.conf`
+gerendert ist (dafür braucht es `ZABBIX_API_TOKEN`). Fehlt sie, bleibt die
+Spalte einfach weg — die Dashboards laufen davon unabhängig.
 
 **2. Euer eigenes Zabbix-Dashboard als Vollbild.** Genau die Idee, eigene
 Dashboards in Zabbix zu bauen und anzeigen zu lassen — das ist der direkteste
@@ -596,13 +660,7 @@ Titel/Text. Der Schweregrad trägt immer Symbol + Label, nie Farbe allein.
 
 ### Zabbix-Alarme einblenden
 Der API-Token gehört nicht in eine Seite, die im Flur läuft — Nginx hängt ihn
-serverseitig an:
-
-```bash
-cd nginx/conf.d/extra
-cp zabbix.conf.example zabbix.conf     # gitignored
-$EDITOR zabbix.conf                    # ZABBIX-URL + Token eintragen
-cd ../../.. && docker compose restart nginx
-```
-Danach in `assets/wall.html` `ZABBIX_ENABLED = true` setzen. Echte Alarme
-stehen dann immer vor den News.
+serverseitig an. Nichts von Hand kopieren: `ZABBIX_URL` in
+`config/endpoints.env`, `ZABBIX_API_TOKEN` in `config/secrets.env`, dann
+`./scripts/update.sh`. Danach in `assets/wall.html` `ZABBIX_ENABLED = true`
+setzen. Echte Alarme stehen dann immer vor den News.

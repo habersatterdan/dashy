@@ -1,0 +1,62 @@
+# -----------------------------------------------------------------------------
+# Einbett-Proxy, Platz 2 von 4.
+#
+# WOFUER: Jede Weboberflaeche, die ihr auf der Wand zeigen wollt - Grafana,
+# PRTG, CheckMK, vCenter, ein internes Wiki. Zabbix hat eine eigene Datei
+# (zabbix-ui.conf), weil es dort schon fertig eingerichtet ist.
+#
+# WARUM UEBERHAUPT EIN PROXY: Die meisten Anwendungen senden
+# "X-Frame-Options: SAMEORIGIN" oder eine CSP mit frame-ancestors. Ein
+# <iframe> darauf bleibt von der Wand aus leer - der Browser blockt es
+# wortlos, ohne Fehlermeldung. Ueber diesen Proxy laeuft die Anwendung unter
+# UNSERER Adresse (also same-origin), und beide Kopfzeilen werden entfernt.
+#
+# EINRICHTEN - zwei Zeilen in config/endpoints.env:
+#     EMBED2_SLUG=grafana
+#     EMBED2_URL=https://grafana.firma.local
+# Dann:  ./scripts/update.sh
+# Erreichbar unter:  https://<pi>/grafana/
+# In config/pages.txt eintragen:  Grafana | /grafana/ | 60
+#
+# Fehlt eine der beiden Zeilen, wird diese Datei bewusst nicht geschrieben -
+# ein offener Platzhalter waere fuer nginx gueltige Variablensyntax und wuerde
+# den Start des gesamten Reverse-Proxys verhindern.
+# -----------------------------------------------------------------------------
+
+location = /${EMBED2_SLUG} { return 301 /${EMBED2_SLUG}/; }
+
+# Named Capture statt rewrite: die Ziel-URL wird vollstaendig und explizit
+# zusammengesetzt. Steht in proxy_pass eine Variable OHNE Pfad, reicht nginx
+# die urspruengliche Anfrage-URI weiter statt der umgeschriebenen - damit
+# liefe jede Umschreibung ins Leere.
+location ~ ^/${EMBED2_SLUG}/(?<embed2uri>.*)$ {
+    # _ORIGIN = schema://host[:port], _PATH = Basispfad der Anwendung
+    # (leer, wenn sie direkt auf / liegt).
+    set $embed2 "${EMBED2_ORIGIN}";
+    proxy_pass $embed2${EMBED2_PATH}/$embed2uri$is_args$args;
+
+    proxy_set_header Host "${EMBED2_HOST}";
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_http_version 1.1;
+    # WebSockets, falls die Anwendung live nachlaedt (Grafana Live u. a.):
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_ssl_server_name on;
+    # Internes Zertifikat wird nicht geprueft - der Weg bleibt im eigenen Netz.
+    proxy_ssl_verify off;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 60s;
+
+    # Der eigentliche Trick: Einbettungssperren entfernen.
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header Content-Security-Policy;
+
+    # Weiterleitungen und Cookies auf unseren Pfad umbiegen, sonst springt die
+    # Wand beim ersten Redirect aus dem Proxy heraus.
+    proxy_redirect ~^https?://[^/]+${EMBED2_PATH}/(.*)$ /${EMBED2_SLUG}/$1;
+    proxy_redirect ~^https?://[^/]+/(.*)$ /${EMBED2_SLUG}/$1;
+    proxy_cookie_path ${EMBED2_PATH}/ /${EMBED2_SLUG}/;
+
+    add_header Cache-Control "no-store" always;
+}
