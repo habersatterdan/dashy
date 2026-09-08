@@ -20,6 +20,7 @@ Geprueft wird je nach Ziel-Schema:
 import json, os, socket, ssl, sys, time, urllib.error, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 PROBES_FILE  = Path(os.getenv("PROBES_FILE", "/config/probes.txt"))
 OUT_FILE     = Path(os.getenv("OUT_FILE", "/state/probe.json"))
@@ -32,6 +33,10 @@ CERT_CRIT    = int(os.getenv("PROBE_CERT_CRIT_DAYS", "7"))
 HIST_POINTS  = int(os.getenv("PROBE_HISTORY_POINTS", "120"))
 VERIFY_TLS   = os.getenv("PROBE_VERIFY_TLS", "false").lower() in ("1", "true", "yes")
 CORP_CA_FILE = os.getenv("CORP_CA_FILE", "").strip()
+# Kurznamen (ohne Punkt) loesen im Container nicht auf - die Suchdomaene
+# des Firmennetzes kennt Docker nicht. Ist sie hier gesetzt, wird sie an
+# punktlose Namen angehaengt.  Beispiel: PROBE_DNS_SUFFIX=zott.local
+DNS_SUFFIX   = os.getenv("PROBE_DNS_SUFFIX", "").strip().lstrip(".")
 
 
 def log(msg):
@@ -105,7 +110,20 @@ def cert_days_left(host, port):
         return None
 
 
+def fqdn(host):
+    """Punktlosen Kurznamen um die konfigurierte Suchdomaene ergaenzen."""
+    if host and "." not in host and DNS_SUFFIX:
+        return f"{host}.{DNS_SUFFIX}"
+    return host
+
+
 def check_http(url):
+    # Kurzname auch in der URL ersetzen, sonst laeuft der Abruf ins Leere,
+    # waehrend die Zertifikatspruefung schon den FQDN benutzt.
+    u0 = urlsplit(url)
+    if u0.hostname and "." not in u0.hostname and DNS_SUFFIX:
+        netloc = fqdn(u0.hostname) + (f":{u0.port}" if u0.port else "")
+        url = u0._replace(netloc=netloc).geturl()
     verify_tls = url.startswith("https://")
     req = urllib.request.Request(url, method="GET", headers={
         "User-Agent": "NOCSignage-Probe/1.0", "Accept": "*/*"})
@@ -125,13 +143,12 @@ def check_http(url):
 
     days = None
     if verify_tls:
-        from urllib.parse import urlsplit
         u = urlsplit(url)
-        days = cert_days_left(u.hostname, u.port or 443)
+        days = cert_days_left(fqdn(u.hostname), u.port or 443)
 
     if err:
         return dict(state="crit", ms=None, http_status=None, cert_days=days,
-                    message=short_error(err))
+                    message=short_error(err, urlsplit(url).hostname))
     if status >= 500:
         return dict(state="crit", ms=ms, http_status=status, cert_days=days,
                     message=f"HTTP {status}")
@@ -154,6 +171,7 @@ def check_http(url):
 def check_tcp(target):
     hostport = target.split("://", 1)[1]
     host, _, port = hostport.partition(":")
+    host = fqdn(host)
     try:
         port = int(port or 0)
     except ValueError:
@@ -168,7 +186,7 @@ def check_tcp(target):
             pass
     except Exception as e:
         return dict(state="crit", ms=None, http_status=None, cert_days=None,
-                    message=short_error(str(e)))
+                    message=short_error(str(e), host))
     ms = round((time.monotonic() - t0) * 1000)
     days = cert_days_left(host, port) if port in (443, 636, 993, 995, 8443) else None
     state, msg = "ok", f"Port {port} offen"
@@ -182,21 +200,26 @@ def check_tcp(target):
 
 
 def check_dns(target):
-    name = target.split("://", 1)[1].strip("/")
+    name = fqdn(target.split("://", 1)[1].strip("/"))
     t0 = time.monotonic()
     try:
         addrs = sorted({a[4][0] for a in socket.getaddrinfo(name, None)})
     except Exception as e:
         return dict(state="crit", ms=None, http_status=None, cert_days=None,
-                    message=short_error(str(e)))
+                    message=short_error(str(e), name))
     ms = round((time.monotonic() - t0) * 1000)
     return dict(state="ok" if ms <= SLOW_MS else "warn", ms=ms, http_status=None,
                 cert_days=None, message=", ".join(addrs[:3]))
 
 
-def short_error(err):
+def short_error(err, host=None):
     """Rohfehler auf eine Zeile bringen, die aus 5 Metern lesbar ist."""
     e = err.replace("\n", " ")
+    # Der haeufigste Stolperstein im Firmennetz: ein Kurzname ohne
+    # Suchdomaene. Das soll die Wand direkt sagen, statt nur "unbekannt".
+    if host and "." not in host and "Name or service not known" in e:
+        return (f"Kurzname '{host}' loest nicht auf - FQDN eintragen"
+                f" oder PROBE_DNS_SUFFIX setzen")
     table = [
         ("Name or service not known", "DNS-Name unbekannt"),
         ("Temporary failure in name resolution", "DNS antwortet nicht"),

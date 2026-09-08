@@ -52,11 +52,16 @@
     // Eine Seite ausbauen: Zeile loeschen oder auskommentieren (//).
     const PAGES = [
       { name: 'Betriebslage', url: '/lage/',       secs: 60 },
-      { name: 'Alerts',       url: '/wall/',       secs: 30 },
-      { name: 'Übersicht',    url: '/' },
-      { name: 'Störungen',    url: '/stoerungen' },
-      { name: 'Security',     url: '/security' },
-      { name: 'Updates',      url: '/updates' },
+      { name: 'Störungen',    url: '/stoerungen/', secs: 30 },
+      { name: 'Sicherheit',   url: '/wall/',       secs: 30 },
+
+      // Die Dashy-Seiten bleiben erreichbar, laufen aber nicht mehr in der
+      // Rotation mit: Dashys RSS-Widget stapelt alle Meldungen als Fliesstext
+      // untereinander - auf einer Wand aus fuenf Metern unlesbar. Die drei
+      // Seiten oben zeigen dieselben Quellen, nur aufbereitet.
+      // { name: 'Übersicht', url: '/' },
+      // { name: 'Security',  url: '/security' },
+      // { name: 'Updates',   url: '/updates' },
 
       // --- Eigenes Zabbix-Dashboard --------------------------------------
       // Erst einkommentieren, wenn nginx/conf.d/extra/zabbix.conf gerendert

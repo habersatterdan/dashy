@@ -271,6 +271,14 @@ Das Ziel bestimmt die Prüfart:
 
 Keine Zugangsdaten nötig. Die Sonde misst alle 60 Sekunden von sich aus.
 
+> **Immer den vollen Namen eintragen.** `tcp://srvdemev00091o:389` schlägt fehl,
+> `tcp://srvdemev00091o.firma.local:389` funktioniert. Ein Kurzname löst im
+> Container nicht auf — die Suchdomäne des Firmennetzes kennt Docker nicht.
+> (Deshalb scheitert auch `ping srvdemev00091o` auf dem Pi selbst.) Die Wand
+> schreibt in dem Fall ausdrücklich „Kurzname löst nicht auf". Wer die
+> Suchdomäne lieber einmal zentral setzt: `PROBE_DNS_SUFFIX=firma.local` in
+> `.env`.
+
 Drei Details, die den Unterschied machen:
 
 - **HTTP 401/403 ist kein Ausfall.** Ein Dienst, der Anmeldung verlangt, *lebt*
@@ -293,6 +301,28 @@ Sofort nachsehen, ob die Ziele stimmen:
 ```bash
 docker compose exec probe python /app/probe.py --once
 ```
+
+## Warum die Nachrichtenseiten neu gebaut sind
+
+Dashys RSS-Widget stapelt jede Meldung als Fließtext untereinander. Am
+Schreibtisch ist das brauchbar, auf einer Wand aus fünf Metern eine Textwüste —
+man erkennt nicht einmal, *welcher Anbieter* betroffen ist.
+
+`/stoerungen/` macht daraus **eine Karte pro Anbieter**: Microsoft 365, Azure,
+Cisco — jede mit klarem Status („✓ keine aktuelle Störung" / „! 2 aktuelle
+Meldungen") und den letzten Einträgen mit Alter. Beim Vorbeilaufen zählt die
+Frage *wer hat gerade ein Problem*, nicht die Chronologie aller Feeds.
+
+> **Frisch-Fenster:** Statusfeeds enthalten auch alte, längst behobene
+> Meldungen. Nur was jünger als 24 Stunden ist, gilt als laufende Störung. Ohne
+> das stünde die Wand dauerhaft auf Alarm — und niemand schaut mehr hin.
+
+Die Dashy-Seiten (`/`, `/security`, `/updates`) bleiben erreichbar, laufen aber
+nicht mehr in der Rotation mit. Wieder aufnehmen: in `assets/signage.html` die
+Zeile einkommentieren.
+
+Die Rotation zeigt jetzt drei eigengestaltete Seiten:
+`/lage/` (60 s) → `/stoerungen/` (30 s) → `/wall/` (30 s).
 
 ## Zabbix an der Wand
 

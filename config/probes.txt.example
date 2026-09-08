@@ -10,6 +10,13 @@
 #   tcp://host:389      Port offen? (LDAP, SMTP, SQL, RDP ... )
 #   dns://name.example  Löst der Name auf?
 #
+# WICHTIG - IMMER DEN VOLLEN NAMEN (FQDN) EINTRAGEN:
+#   falsch:  tcp://srvdemev00091o:389
+#   richtig: tcp://srvdemev00091o.firma.local:389
+# Ein Kurzname loest im Container nicht auf - die Suchdomaene des Firmennetzes
+# kennt Docker nicht. (Genau daran scheitert auch "ping srvdemev00091o" auf dem
+# Pi selbst.) Wer die Suchdomaene lieber zentral setzt: PROBE_DNS_SUFFIX in .env.
+#
 # Kopieren:  cp config/probes.txt.example config/probes.txt
 # Die echte Datei ist gitignored und überlebt jedes "git reset --hard".
 # Zeilen mit # sind Kommentare. Reihenfolge = Reihenfolge auf der Wand.
