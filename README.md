@@ -118,6 +118,8 @@ der Proxy schuld.
 | Seite **leer, keine Fehlermeldung** | direkt auf `https://server…` eingebettet statt über den Proxy | immer den Proxy-Pfad verwenden |
 | **Login** statt Dashboard | keine Freigabe in der Anwendung | siehe Tabelle oben |
 | Schrift **zu klein** aus 5 m | Anwendung für Schreibtisch gebaut | über `/site/?w=1280&url=…` hochskalieren |
+| **Dashy-404** (lila, „Page Not Found") | Adresse ohne Schrägstrich am Ende aufgerufen | `/signage/` statt `/signage` — die Umleitung fängt das inzwischen ab |
+| Dashboard **taucht nicht auf** | Zeile fehlt in `config/pages.txt`, oder die Datei existiert nicht | `./scripts/check-wall.sh` |
 
 ## Quick start
 
@@ -135,9 +137,21 @@ $EDITOR config/pages.txt           # was die Wand zeigt
 ./scripts/check-zabbix.sh          # prüft die Anbindung Schicht für Schicht
 ```
 
-Die Wand läuft unter **`https://<pi>/signage/`** — der Kiosk-Dienst öffnet sie
-beim Hochfahren von selbst. Einzelne Seiten direkt: `/lage/`, `/stoerungen/`,
-`/wall/`.
+Die Wand läuft unter **`https://<pi>/signage/`** — mit **Schrägstrich am Ende**.
+Der Kiosk-Dienst öffnet sie beim Hochfahren von selbst. Einzelne Seiten direkt:
+`/lage/`, `/stoerungen/`, `/wall/`.
+
+Prüfen, ob wirklich jede Seite lädt — auch jedes Zabbix-Dashboard:
+
+```bash
+./scripts/check-wall.sh
+```
+
+Das ist der schnellste Weg zur Antwort „warum sehe ich mein Dashboard nicht":
+eine kaputte Seite huscht in der Rotation nach 30 Sekunden vorbei und ist
+wieder weg. Das Skript ruft jede Zeile aus `config/pages.txt` einzeln auf und
+erkennt auch, ob Zabbix statt des Dashboards den Login liefert oder `&kiosk=1`
+fehlt.
 
 **Für ein Update immer `./scripts/update.sh`** — ein bloßes `git pull` reicht
 nicht, siehe *Nach einem Update*.
