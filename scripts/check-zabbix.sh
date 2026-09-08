@@ -199,9 +199,14 @@ case "${CODE}" in
   200|302|301) ok "/zabbix/ antwortet HTTP ${CODE}" ;;
   404) fail "/zabbix/ -> 404. Der Proxy ist nicht geladen (siehe oben), oder"
        echo "         nginx wurde nach dem Rendern nicht neu gestartet." ;;
-  500|502|504) fail "/zabbix/ -> ${CODE}. nginx erreicht Zabbix nicht."
-       echo "         Ist Schritt 2 im Container rot, ist DAS die Ursache -"
-       echo "         nicht der Proxy. Vollen FQDN in ZABBIX_URL eintragen." ;;
+  500|502|504) fail "/zabbix/ -> ${CODE}."
+       if [ "${API}" = "200" ] 2>/dev/null; then :; fi
+       echo "         Antwortet /api/zabbix weiter unten mit 200, erreicht nginx"
+       echo "         Zabbix sehr wohl - dann liegt es NICHT an DNS, sondern am"
+       echo "         Proxy selbst. Letzte Zeilen des Fehlerprotokolls:"
+       docker compose logs --tail 5 nginx 2>/dev/null | sed 's/^/           /'
+       echo "         Ist Schritt 2 im Container rot UND /api/zabbix ebenfalls"
+       echo "         rot, ist die Namensaufloesung die Ursache." ;;
   000) fail "/zabbix/ nicht erreichbar - nginx antwortet nicht."
        echo "         Pruefen:  docker compose ps   und   docker compose logs nginx"
        echo "         Haeufigste Ursache: eine .conf mit offenen Platzhaltern,"

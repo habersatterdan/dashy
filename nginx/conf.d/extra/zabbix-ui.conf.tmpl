@@ -26,38 +26,41 @@
 #     Damit ohne Anmeldung etwas zu sehen ist, in Zabbix EINES von beiden:
 #       a) Dashboard mit dem Benutzer "guest" teilen (Sharing -> Public), oder
 #       b) einen eigenen Nur-Lese-Benutzer anlegen und HTTP-Auth verwenden.
-location /zabbix/ {
-    # Unser Praefix /zabbix/ gegen den ECHTEN Basispfad des Servers tauschen.
-    # Zabbix liegt je nach Installation unter /zabbix (Paketinstallation) oder
-    # direkt auf / (Container). ZABBIX_PATH kommt aus ZABBIX_URL und ist im
-    # zweiten Fall leer - dann bleibt schlicht /$1 stehen.
-    rewrite ^/zabbix/(.*)$ ${ZABBIX_PATH}/$1 break;
+# Ohne Schraegstrich am Ende auf die Proxy-Wurzel umlenken.
+location = /zabbix { return 301 /zabbix/; }
 
-    # WICHTIG: hier NUR schema://host, ohne Pfad. Steht ein Pfad in der
-    # Variablen, ist nicht vorhersagbar, ob Nginx die umgeschriebene Anfrage-URI
-    # noch weiterreicht. Ohne Pfad wird sie garantiert unveraendert uebernommen.
+# Named Capture statt rewrite: die Ziel-URL wird hier VOLLSTAENDIG und
+# explizit zusammengesetzt.
+#
+# Warum nicht "rewrite ... break" plus "proxy_pass $var":
+# Steht in proxy_pass eine Variable OHNE Pfad, reicht Nginx die urspruengliche
+# Anfrage-URI weiter - nicht die umgeschriebene. Die Umschreibung lief also ins
+# Leere, und je nach Zusammenspiel endet das in einem 500 statt in einer
+# verstaendlichen Meldung. Mit $zbxuri ist nichts mehr implizit.
+location ~ ^/zabbix/(?<zbxuri>.*)$ {
+    # ZABBIX_ORIGIN = schema://host[:port], ZABBIX_PATH = Basispfad des
+    # Servers ("/zabbix" bei Paketinstallation, leer wenn Zabbix auf / liegt).
     set $zbxui "${ZABBIX_ORIGIN}";
-    proxy_pass $zbxui;
+    proxy_pass $zbxui${ZABBIX_PATH}/$zbxuri$is_args$args;
+
     proxy_set_header Host "${ZABBIX_HOST}";
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_http_version 1.1;
     proxy_ssl_server_name on;
     proxy_ssl_verify off;
     proxy_connect_timeout 10s;
     proxy_read_timeout 60s;
 
-    # Der eigentliche Trick: Zabbix' Einbettungssperre entfernen.
+    # Der eigentliche Trick, falls Zabbix die Einbettung sperrt.
     proxy_hide_header X-Frame-Options;
     proxy_hide_header Content-Security-Policy;
 
-    # Weiterleitungen von Zabbix auf unseren Pfad umbiegen, sonst springt die
-    # Wand beim Anmelden aus dem Proxy heraus.
+    # Weiterleitungen und Cookies auf unseren Pfad umbiegen, sonst springt die
+    # Wand beim ersten Redirect aus dem Proxy heraus.
     proxy_redirect ~^https?://[^/]+${ZABBIX_PATH}/(.*)$ /zabbix/$1;
     proxy_redirect ~^https?://[^/]+/(.*)$ /zabbix/$1;
-
-    # Zabbix setzt Sitzungs-Cookies auf "/" - hier passend umschreiben.
     proxy_cookie_path ${ZABBIX_PATH}/ /zabbix/;
 
-    # Dashboards laden im Hintergrund nach; kein Zwischenspeicher.
     add_header Cache-Control "no-store" always;
 }

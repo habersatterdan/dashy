@@ -63,12 +63,23 @@
       // { name: 'Security',  url: '/security' },
       // { name: 'Updates',   url: '/updates' },
 
-      // --- Eigenes Zabbix-Dashboard --------------------------------------
-      // Erst einkommentieren, wenn nginx/conf.d/extra/zabbix.conf gerendert
-      // ist (sonst 404). dashboardid aus der Zabbix-URL uebernehmen.
-      // kiosk=1 blendet Menue und Kopfzeile aus.
+      // --- Eigene Zabbix-Dashboards --------------------------------------
+      // Einkommentieren, sobald ./scripts/check-zabbix.sh gruen ist.
+      // dashboardid aus der Zabbix-URL uebernehmen; kiosk=1 blendet Menue und
+      // Kopfzeile aus. Das Dashboard muss mit dem Benutzer "guest" geteilt
+      // sein (Zabbix: Dashboard -> Sharing -> Public), sonst kommt der Login.
+      //
+      // Direkt (scharfe Darstellung, Zabbix-eigene Schriftgroessen):
       // { name: 'Zabbix', secs: 60,
-      //   url: '/zabbix/zabbix.php?action=dashboard.view&dashboardid=1&kiosk=1' },
+      //   url: '/zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1' },
+      //
+      // Alternativ ueber /site/ hochskaliert, falls die Schrift aus der
+      // Entfernung zu klein ist (w = Renderbreite, kleiner = groesser):
+      // { name: 'Zabbix', secs: 60,
+      //   url: '/site/?title=Zabbix&w=1280&url=' + encodeURIComponent(
+      //     '/zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1') },
+      //
+      // Mehrere Dashboards? Einfach mehrere Zeilen mit anderer dashboardid.
     ];
 
     const frame = document.getElementById('frame');
