@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# Zusaetzlicher RSS-/Atom-Feed, Platz 1 von 6.
+#
+# WOFUER: Der Browser darf fremde Feeds nicht selbst laden (CORS). Nginx holt
+# sie serverseitig und liefert sie unter eigener Adresse aus - erst dadurch
+# koennen /wall/ und /stoerungen/ sie anzeigen.
+#
+# EINRICHTEN - zwei Zeilen in config/endpoints.env:
+#     FEED1_SLUG=fortinet
+#     FEED1_URL=https://.../rss.xml
+# Dann:  ./scripts/update.sh  und  ./scripts/check-feeds.sh
+# Erreichbar unter:  /feeds/fortinet
+# In config/sources.txt eintragen, damit die Karte auf /stoerungen/ erscheint.
+# -----------------------------------------------------------------------------
+
+location = /feeds/${FEED1_SLUG} {
+    set $feed1 "${FEED1_URL}";
+    proxy_pass $feed1;
+    proxy_set_header Host "${FEED1_HOST}";
+    # Manche Anbieter antworten ohne User-Agent gar nicht.
+    proxy_set_header User-Agent "NOCSignage/1.0";
+    proxy_set_header Accept "application/rss+xml, application/atom+xml, application/xml, text/xml";
+    proxy_ssl_server_name on;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 20s;
+    default_type application/xml;
+    add_header Cache-Control "no-store" always;
+}

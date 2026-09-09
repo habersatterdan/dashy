@@ -28,6 +28,7 @@ echo "==> [3b/6] Creating central config (URLs + credentials) and rendering"
 [ -f config/secrets.env ]   || { cp config/secrets.env.example config/secrets.env; chmod 600 config/secrets.env; }
 [ -f config/probes.txt ]    || cp config/probes.txt.example config/probes.txt
 [ -f config/pages.txt ]     || cp config/pages.txt.example config/pages.txt
+[ -f config/sources.txt ]   || cp config/sources.txt.example config/sources.txt
 python3 ./scripts/render-config.py || true
 
 echo "==> [4/6] Starting the Docker Compose stack"

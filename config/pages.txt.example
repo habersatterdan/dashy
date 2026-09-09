@@ -18,6 +18,15 @@ Betriebslage      | /lage/         | 60
 Störungen         | /stoerungen/   | 30
 Sicherheit        | /wall/         | 30
 
+# --- Anmeldung einmalig oeffnen ("Als Gast anmelden" simulieren) --------------
+# Zabbix zeigt seine Dashboards erst nach einem Klick auf "Als Gast anmelden" -
+# dabei setzt es ein Sitzungs-Cookie. Diese Zeile ruft genau das einmal beim
+# Start der Wand auf, unsichtbar, bevor die Rotation beginnt. Weil alles ueber
+# unseren Proxy same-origin laeuft, gilt das Cookie danach fuer alle
+# Dashboard-Seiten.
+# Zeilen mit @login sind KEINE Wandseiten und tauchen in der Rotation nicht auf.
+@login | /zabbix/index.php?form=default&enter=Sign+in+as+guest
+
 # --- Zabbix-Dashboards --------------------------------------------------------
 # WICHTIG - drei Regeln:
 #   1. Immer mit /zabbix/ beginnen, NIE mit http://server/... - nur ueber den

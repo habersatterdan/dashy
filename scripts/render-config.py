@@ -141,9 +141,9 @@ def main() -> int:
         # Ein ungenutzter Einbett-Platz ist kein Fehler, sondern der
         # Normalfall - dafuer gibt es vier Vorlagen. Nur melden, was jemand
         # halb ausgefuellt hat.
-        slot = re.match(r"^embed(\d+)\.conf$", target.name)
+        slot = re.match(r"^(embed|feed)(\d+)\.conf$", target.name)
         if slot:
-            k = f"EMBED{slot.group(1)}"
+            k = f"{slot.group(1).upper()}{slot.group(2)}"
             if not values.get(k + "_SLUG") and not values.get(k + "_URL"):
                 continue
 

@@ -26,6 +26,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | Ich will … | Datei | Danach |
 |---|---|---|
 | **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
+| **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
 | **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |
@@ -120,6 +121,52 @@ der Proxy schuld.
 | Schrift **zu klein** aus 5 m | Anwendung für Schreibtisch gebaut | über `/site/?w=1280&url=…` hochskalieren |
 | **Dashy-404** (lila, „Page Not Found") | Adresse ohne Schrägstrich am Ende aufgerufen | `/signage/` statt `/signage` — die Umleitung fängt das inzwischen ab |
 | Dashboard **taucht nicht auf** | Zeile fehlt in `config/pages.txt`, oder die Datei existiert nicht | `./scripts/check-wall.sh` |
+
+### „Als Gast anmelden" automatisch klicken
+
+Zabbix zeigt seine Dashboards erst nach einem Klick auf *Als Gast anmelden* —
+dabei setzt es ein Sitzungs-Cookie. Auf einer Wand, die niemand bedient, ist
+das ein Problem: `check-wall.sh` meldet dann bei jedem Dashboard „Zabbix
+verlangt Anmeldung".
+
+Dafür gibt es in `config/pages.txt` die `@login`-Zeile:
+
+```
+@login | /zabbix/index.php?form=default&enter=Sign+in+as+guest
+```
+
+Sie wird **einmal beim Start der Wand** unsichtbar aufgerufen, bevor die
+Rotation beginnt. Weil alles über den Proxy same-origin läuft, gilt das Cookie
+danach für alle Dashboard-Seiten. `@login`-Zeilen sind keine Wandseiten und
+tauchen in der Rotation nicht auf; mehrere sind erlaubt (ein anderes Backend
+mit eigener Anmeldung).
+
+Das ersetzt keine echte Freigabe: Ist `guest` in Zabbix deaktiviert, hilft auch
+der simulierte Klick nicht — dann bleibt nur *Dashboard → Sharing → Public*
+oder ein Nur-Lese-Benutzer.
+
+### Weitere RSS-Feeds ergänzen
+
+Fest eingebaut sind `m365`, `azure`, `cisco`, `bsi`, `cisa`, `heise-alerts`,
+`heise-security`, `kev`. Sechs weitere Plätze in `config/endpoints.env`:
+
+```
+FEED1_SLUG=fortinet
+FEED1_URL=https://.../rss.xml
+```
+
+Danach steht der Feed unter `/feeds/fortinet` bereit. Welche Anbieter als
+Karte auf `/stoerungen/` erscheinen, steht in `config/sources.txt`:
+
+```
+Microsoft 365 | m365
+Fortinet      | fortinet
+```
+
+> **Vor dem Eintragen prüfen:** `./scripts/check-feeds.sh` ruft jede Route auf
+> und zeigt Statuscode und Antwortanfang. Feed-Adressen ändern sich; eine tote
+> Quelle erzeugt dauerhaft eine rote Karte — und dauerhaft Rotes stumpft ab,
+> bis niemand mehr hinsieht.
 
 ## Quick start
 

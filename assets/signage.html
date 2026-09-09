@@ -84,6 +84,10 @@
         if (!l || l.startsWith('#')) continue;
         const parts = l.split('|').map(x => x.trim());
         if (parts.length < 2 || !parts[1]) continue;
+        // "@login | <url>" ist keine Wandseite, sondern eine Adresse, die
+        // einmal vor der Rotation aufgerufen wird, um eine Sitzung zu oeffnen
+        // (z. B. Zabbix' Gast-Anmeldung). Siehe warmup().
+        if (parts[0].toLowerCase() === '@login') { LOGINS.push(parts[1]); continue; }
         const secs = parseInt(parts[2], 10);
         out.push({ name: parts[0] || parts[1],
                    url: parts[1],
@@ -93,6 +97,36 @@
     }
 
     let pagesSource = null;
+    const LOGINS = [];
+
+    /* Anmeldung "simulieren": Zabbix zeigt seine Dashboards erst nach einem
+       Klick auf "Als Gast anmelden" - dabei setzt es ein Sitzungs-Cookie.
+       Genau diesen einen Aufruf machen wir hier automatisch, einmal beim
+       Start der Wand. Weil alles ueber unseren Proxy same-origin laeuft, gilt
+       das Cookie anschliessend fuer alle Dashboard-Seiten.
+
+       Bewusst in einem unsichtbaren iframe statt per fetch(): der Aufruf soll
+       sich genau wie ein Seitenaufruf im Browser verhalten, samt Cookie-
+       Uebernahme und Weiterleitungen. */
+    function warmup() {
+      if (!LOGINS.length) return Promise.resolve();
+      return new Promise(resolve => {
+        let offen = LOGINS.length;
+        const fertig = () => { if (--offen <= 0) resolve(); };
+        for (const url of LOGINS) {
+          const f = document.createElement('iframe');
+          f.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;border:0';
+          f.addEventListener('load', fertig);
+          // Auch wenn das Ziel nie "load" meldet, darf die Wand nicht haengen.
+          setTimeout(fertig, 8000);
+          f.src = url;
+          document.body.appendChild(f);
+          // Nach 15 s wieder abraeumen - das Cookie bleibt im Browser.
+          setTimeout(() => f.remove(), 15000);
+        }
+      });
+    }
+
     async function loadPages() {
       try {
         const r = await fetch('/config/pages.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -122,7 +156,9 @@
     }
     // Erst Liste holen, dann anzeigen. Ohne await stuenden Punkte und erste
     // Seite noch fuer die Vorgabeliste.
-    loadPages().then(() => { buildDots(); show(0); });
+    // Reihenfolge zaehlt: erst Liste holen, dann anmelden, dann anzeigen.
+    // Startet die Rotation vorher, zeigt die erste Runde noch den Login.
+    loadPages().then(warmup).then(() => { buildDots(); show(0); });
 
     // Weiterschalten. Kein fester Takt mehr, sondern eine Kette von Timern -
     // nur so kann jede Seite ihre eigene Standzeit haben.

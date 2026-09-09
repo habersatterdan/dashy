@@ -111,11 +111,31 @@ const TIMEOUT_MS = 15000;
 const MAX_ITEMS  = 3;           // je Anbieter
 const SHIFT_MS   = 600000;      // Burn-in: alle 10 min ein paar Pixel
 
-const SOURCES = [
+// Rueckfallebene. Die tatsaechliche Liste kommt aus config/sources.txt -
+// so laesst sich eine Quelle ergaenzen, ohne diese Datei anzufassen (sie ist
+// versioniert, eine Aenderung waere beim naechsten Update weg).
+let SOURCES = [
   { id:'m365',  name:'Microsoft 365' },
   { id:'azure', name:'Microsoft Azure' },
   { id:'cisco', name:'Cisco' },
 ];
+
+async function loadSources(){
+  try{
+    const r = await fetch('/config/sources.txt?t=' + Date.now(), {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = [];
+    for (const line of (await r.text()).split('\n')){
+      const l = line.trim();
+      if (!l || l.startsWith('#')) continue;
+      const [name, id] = l.split('|').map(x => x.trim());
+      if (id) list.push({ id, name: name || id });
+    }
+    if (list.length) SOURCES = list;
+  } catch(e){
+    console.warn('config/sources.txt nicht lesbar, nutze Vorgabeliste:', e);
+  }
+}
 
 /* ---8<--- LOGIC START (wird von scripts/test-stoerungen.mjs extrahiert) ---- */
 
@@ -397,7 +417,8 @@ setInterval(() => {
 }, SHIFT_MS);
 
 tickClock(); setInterval(tickClock, 1000);
-refresh(); setInterval(refresh, REFRESH_MS);
+loadSources().then(refresh);
+setInterval(refresh, REFRESH_MS);
 </script>
 </body>
 </html>
