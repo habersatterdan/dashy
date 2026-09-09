@@ -732,7 +732,30 @@ hintereinander, und eine Flut stumpft ab, bis niemand mehr hinsieht.
 
 `summary` und `highest_priority` stehen bewusst oben: Damit entscheidet die
 Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
-`headline` ist als fertige Betreffzeile gedacht.
+
+### Fertig formatiert — im Zielsystem muss kein Text gebaut werden
+
+| Feld | wofür |
+|---|---|
+| `summary.headline` | Betreffzeile: *„3 neue Meldungen mit 9 CVEs (2x P1, 1x P2, 1x aktiv ausgenutzt)"* |
+| `summary.text` | Klartext für E-Mail oder Ticket, nach Dringlichkeit sortiert |
+| `summary.markdown` | für Teams oder Slack, mit 🔴/🟠 und klickbaren Titeln |
+| `highest_priority` | `P1`/`P2` — für die Weiterleitungsregel |
+| `summary.kev_cves` | aktiv ausgenutzt: das schärfste Signal |
+
+In der Logic App genügt damit ein Feld: `summary.markdown` in die Teams-Karte,
+`summary.headline` als Betreff. Kein Schleifenbau, kein String-Zusammensetzen.
+
+### Ein Advisory ist eine Meldung, nicht zwölf
+
+Cisco veröffentlicht Sammel-Advisories: ein ClamAV-Eintrag behebt sieben CVEs.
+Als sieben Einträge gelesen wirkt das wie sieben Vorfälle und bläht jede
+Benachrichtigung auf. Meldungen mit gleichem Link werden darum **gruppiert** —
+mit allen CVEs in `cves`, der höchsten Einstufung und dem höchsten Score. Aus
+den 10 Einträgen eines echten Laufs werden so 3 Meldungen.
+
+`cve` bleibt als Einzelfeld erhalten (die dringendste der Gruppe), damit
+vorhandene Regeln im Zielsystem weiter greifen.
 
 Schlägt die Zustellung fehl, gilt **kein** Fund als gemeldet — der nächste
 Durchlauf versucht es erneut. Nichts geht still verloren.
