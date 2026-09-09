@@ -48,6 +48,9 @@ else
     name="$(echo "${line}" | cut -d'|' -f1 | sed 's/[[:space:]]*$//')"
     url="$(echo "${line}"  | cut -d'|' -f2 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
     [ -z "${url}" ] && continue
+    # @login ist eine Anmelde-Adresse, keine Wandseite - sie taucht in der
+    # Rotation nicht auf und darf hier nicht als Dashboard beurteilt werden.
+    case "${name}" in @login|@LOGIN) continue ;; esac
     n=$((n+1))
     c="$(code "${BASE}${url}")"
     case "${c}" in
@@ -77,12 +80,26 @@ if [ -f config/pages.txt ] && grep -q '/zabbix/' config/pages.txt; then
     url="$(echo "${line}" | cut -d'|' -f2 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
     name="$(echo "${line}" | cut -d'|' -f1 | sed 's/[[:space:]]*$//')"
     [ -z "${url}" ] && continue
+    case "${name}" in @login|@LOGIN) continue ;; esac
     body="$(curl -sk -m 15 "${BASE}${url}" 2>/dev/null)"
     case "${body}" in
       *'You are not logged in'*|*'name="login"'*)
-        echo "  ${R}FEHLER${D} ${name}: Zabbix verlangt Anmeldung."
-        echo "         Dashboard mit dem Benutzer 'guest' teilen:"
-        echo "         Zabbix -> Dashboards -> <Dashboard> -> Sharing -> Public" ;;
+        if grep -q '^@login' config/pages.txt 2>/dev/null; then
+          echo "  ${Y}HINWEIS${D} ${name}: Zabbix verlangt hier eine Anmeldung."
+          echo "         Das ist erwartbar: dieser Test laeuft mit curl und hat"
+          echo "         kein Sitzungs-Cookie. Die Wand ruft die @login-Zeile aus"
+          echo "         config/pages.txt auf und HAT eines - massgeblich ist"
+          echo "         darum der Blick in den Browser, nicht diese Zeile."
+          echo "         Kommt dort trotzdem der Login: Dashboard mit 'guest'"
+          echo "         teilen (Zabbix -> Dashboards -> <Dashboard> -> Sharing)."
+        else
+          echo "  ${R}FEHLER${D} ${name}: Zabbix verlangt Anmeldung."
+          echo "         Entweder eine @login-Zeile in config/pages.txt ergaenzen:"
+          echo "           @login | /zabbix/index.php?form=default&enter=Sign+in+as+guest"
+          echo "         oder das Dashboard mit 'guest' teilen:"
+          echo "           Zabbix -> Dashboards -> <Dashboard> -> Sharing -> Public"
+          FAILED=1
+        fi ;;
       *) case "${url}" in
            *kiosk=1*) echo "  ${G}OK${D}     ${name}: laedt, kiosk=1 gesetzt" ;;
            *) echo "  ${Y}HINWEIS${D} ${name}: laedt, aber ohne &kiosk=1 -"

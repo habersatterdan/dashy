@@ -71,6 +71,14 @@
   .item.resolved .badge,.item.cancelled .badge{color:var(--good)}
   .item.nodate   .badge{color:var(--ink-2)}
   .none{color:var(--ink-3); font-size:15px; line-height:1.5}
+  /* Verlauf: klar untergeordnet - er darf nie wie eine laufende Stoerung
+     wirken. Kleiner, blasser, einzeilig. */
+  .hint{font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+        color:var(--ink-3); margin-top:2px}
+  .item.leise .t{font-size:14px; font-weight:500; color:var(--ink-2);
+                 -webkit-line-clamp:1}
+  .item.leise .meta{font-size:11px}
+  .item.leise .badge{opacity:.65}
 
   footer{border-top:1px solid var(--rule); padding:8px 30px; display:flex; gap:22px;
          color:var(--ink-3); font-size:12px}
@@ -108,7 +116,11 @@
 --------------------------------------------------------------------------- */
 const REFRESH_MS = 300000;      // 5 Minuten
 const TIMEOUT_MS = 15000;
-const MAX_ITEMS  = 3;           // je Anbieter
+// Bei aktiven Stoerungen zaehlt Ruhe: hoechstens drei, gross und lesbar.
+// Ist nichts los, waere die Karte sonst zu drei Vierteln leer - dann darf
+// mehr Verlauf hinein, damit die Wand zeigt, dass sie lebt.
+const MAX_ITEMS  = 3;
+const MAX_RUHIG  = 6;
 const SHIFT_MS   = 600000;      // Burn-in: alle 10 min ein paar Pixel
 
 // Rueckfallebene. Die tatsaechliche Liste kommt aus config/sources.txt -
@@ -308,8 +320,13 @@ function loadCache(id){
 
 /* --- Karten -------------------------------------------------------------- */
 function prepare(items, now){
-  return sortItems(items.map(i => ({ ...i, state: classify(i) }))
-                        .filter(i => isFresh(i, now)));
+  const alle = sortItems(items.map(i => ({ ...i, state: classify(i) })));
+  return {
+    aktuell: alle.filter(i => isFresh(i, now)),
+    // Verlauf nach Datum, unabhaengig vom Frisch-Fenster.
+    verlauf: alle.slice().sort((a, b) =>
+      (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0)),
+  };
 }
 
 function cardClass(shown, err){
@@ -329,20 +346,34 @@ function cardStatus(shown, err){
   return { g:'✓', t:'KEINE FRISCHE AKTIVE MELDUNG' };
 }
 
-function renderCard(src, shown, err, fromCache, cacheAge){
+function zeile(i, leise){
+  return `<div class="item ${i.state}${leise ? ' leise' : ''}">
+      <div class="t">${esc(shorten(i.title))}</div>
+      <div class="meta"><span class="badge">${BADGE[i.state].g} ${BADGE[i.state].t}</span>
+        <span>${esc(ago(i.date))}</span></div>
+    </div>`;
+}
+
+function renderCard(src, data, err, fromCache, cacheAge){
+  const shown   = data.aktuell;
+  const verlauf = data.verlauf;
   const cls = cardClass(shown, err);
   const st  = cardStatus(shown, err);
-  const body = shown.length
-    ? shown.slice(0, MAX_ITEMS).map(i => `
-        <div class="item ${i.state}">
-          <div class="t">${esc(shorten(i.title))}</div>
-          <div class="meta"><span class="badge">${BADGE[i.state].g} ${BADGE[i.state].t}</span>
-            <span>${esc(ago(i.date))}</span></div>
-        </div>`).join('')
-    : `<div class="none">${err
+
+  let body;
+  if (shown.length){
+    body = shown.slice(0, MAX_ITEMS).map(i => zeile(i, false)).join('');
+  } else if (verlauf.length){
+    // Nichts Aktives - aber die Quelle liefert. Das ist eine andere Aussage
+    // als "Quelle tot", und die Karte soll das zeigen statt leer zu bleiben.
+    body = `<div class="hint">Zuletzt gemeldet</div>`
+         + verlauf.slice(0, MAX_RUHIG).map(i => zeile(i, true)).join('');
+  } else {
+    body = `<div class="none">${err
         ? esc(err)
-        : 'Im öffentlichen Feed steht nichts Aktuelles. Was nur euren Tenant '
-          + 'oder eine Region betrifft, erscheint hier nicht.'}</div>`;
+        : 'Im öffentlichen Feed steht nichts. Was nur euren Tenant oder eine '
+          + 'Region betrifft, erscheint hier nicht — das steht in Service Health.'}</div>`;
+  }
   return `<div class="card ${cls}">
       <div class="nm">${esc(src.name)}</div>
       <div class="st"><span>${st.g}</span><span>${st.t}</span></div>
@@ -358,25 +389,25 @@ async function refresh(){
     try{
       const items = await fetchFeed(src);
       saveCache(src.id, items);
-      return { src, shown: prepare(items, now) };
+      return { src, data: prepare(items, now) };
     } catch(e){
       const c = loadCache(src.id);
       return { src, err: String(e.message || e), fromCache: !!c,
                cacheAge: c ? c.at : 0,
-               shown: c ? prepare(c.items, now) : [] };
+               data: c ? prepare(c.items, now) : { aktuell: [], verlauf: [] } };
     }
   }));
 
   $('cards').innerHTML = results.map(r =>
-    renderCard(r.src, r.shown, r.err, r.fromCache, r.cacheAge)).join('');
+    renderCard(r.src, r.data, r.err, r.fromCache, r.cacheAge)).join('');
 
   /* Globaler Zustand. Rangfolge: laufender Ausfall schlaegt alles, dann
      Beeintraechtigung, dann unvollstaendige Datenlage (eine ausgefallene
      Quelle DARF nicht als "stabil" durchgehen), dann Wartung. */
-  const active  = results.filter(r => r.shown.some(isActive));
-  const outage  = results.filter(r => r.shown.some(i => i.state === 'outage'));
+  const active  = results.filter(r => r.data.aktuell.some(isActive));
+  const outage  = results.filter(r => r.data.aktuell.some(i => i.state === 'outage'));
   const dead    = results.filter(r => r.err);
-  const planned = results.filter(r => r.shown.some(i => i.state === 'planned'));
+  const planned = results.filter(r => r.data.aktuell.some(i => i.state === 'planned'));
   const v = $('verdict');
   const set = (cls, g, t, note) => {
     v.className = cls;

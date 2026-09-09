@@ -163,10 +163,19 @@ Microsoft 365 | m365
 Fortinet      | fortinet
 ```
 
-> **Vor dem Eintragen prüfen:** `./scripts/check-feeds.sh` ruft jede Route auf
-> und zeigt Statuscode und Antwortanfang. Feed-Adressen ändern sich; eine tote
-> Quelle erzeugt dauerhaft eine rote Karte — und dauerhaft Rotes stumpft ab,
-> bis niemand mehr hinsieht.
+> **Vor dem Eintragen prüfen:**
+> ```bash
+> ./scripts/check-feeds.sh                # was die Wand sieht + direkte Quelle
+> ./scripts/check-feeds.sh --kandidaten   # bekannte Alternativadressen testen
+> ```
+> Das Skript prüft **zweistufig**: einmal über den Proxy (was die Wand sieht)
+> und einmal direkt zur Quelle. Erst dadurch ist unterscheidbar, ob nginx
+> falsch konfiguriert ist oder der Anbieter die Adresse geändert hat.
+>
+> Das passiert regelmäßig: Microsoft hat `status.office365.com/api/feed/rss`
+> zurückgezogen und `azureedge.net` abgeschaltet. **Deshalb stehen die
+> Statusfeeds nicht mehr fest im Code**, sondern in `config/endpoints.env` —
+> eine tote Adresse ist damit eine Zeile Arbeit, kein Update.
 
 ## Quick start
 
