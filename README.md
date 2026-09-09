@@ -882,6 +882,28 @@ CVE-2026-20127, CVE-2026-20182, CVE-2026-20245
 
 Der Titel ist klickbar und führt direkt zum Advisory.
 
+### Grenzen: was dieser Alarm NICHT sagt
+
+Wichtig, bevor jemand danach handelt:
+
+- **Der Score kommt von der NVD, nicht aus dem Advisory.** Cisco stuft
+  `CVE-2026-20262` als *Medium (6.5, authentifiziert)* ein — der Alarm zeigt
+  trotzdem P1, weil die CVE in CISAs KEV-Liste steht. Beides ist richtig, meint
+  aber Verschiedenes. Kennt die NVD die CVE noch nicht, steht jetzt
+  ausdrücklich **„kein NVD-Score"** statt eines irreführenden `CVSS -`, und
+  jede Meldung nennt ihre Einstufungsgrundlage (`priority_reason`).
+- **Ob IHR betroffen seid, steht hier nicht.** Der Watcher kennt eure Versionen
+  nicht. „Cisco Catalyst SD-WAN Manager" heißt nicht, dass eure Version
+  betroffen ist. Das klärt nur das Advisory — deshalb ist der Titel klickbar.
+- **Die Watchlist entscheidet über den Lärm.** Steht dort `cisco`, kommt jedes
+  Cisco-Advisory. Steht dort `catalyst sd-wan manager`, kommt nur, was ihr
+  wirklich betreibt. Wer zu viele Alarme bekommt, macht die Watchlist
+  **spezifischer** — nicht die Schwelle höher.
+
+Der Alarm beantwortet: *Ist etwas Neues erschienen, das eines unserer Produkte
+betrifft, und wie dringend sieht es aus?* Er beantwortet **nicht**: *Sind wir
+verwundbar?* Das ist der nächste Schritt, und den macht ein Mensch.
+
 ### Was die Darstellung lesbar hält
 
 Drei Entscheidungen, die den Unterschied machen:
