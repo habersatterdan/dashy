@@ -34,6 +34,12 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Produkte für CVE-Meldungen wählen** | `config/watchlist.txt` | `docker compose restart cve-watcher` |
 | **Zeitzone, Intervalle, DNS-Krücken** | `.env` | `./scripts/update.sh` |
 
+> **Nach einem Update:** Neue Schalter landen in `.env.example`, nicht
+> automatisch in deiner `.env` — und ein **fehlender** Schlüssel wirkt wie ein
+> absichtlich gesetzter Vorgabewert. `./scripts/update.sh` nennt am Ende, was
+> fehlt; übernehmen mit `./scripts/update.sh --env-ergaenzen` (bestehende Werte
+> bleiben unberührt, Sicherung in `.env.bak`).
+
 Beim ersten Mal alle Vorlagen kopieren:
 
 ```bash

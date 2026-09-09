@@ -13,6 +13,25 @@
 set -euo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# --env-ergaenzen: fehlende Schluessel aus .env.example anhaengen, bestehende
+# Werte bleiben unberuehrt.
+if [ "${1:-}" = "--env-ergaenzen" ]; then
+  [ -f .env ] || cp .env.example .env
+  cp .env .env.bak
+  ergaenzt=0
+  while IFS= read -r zeile; do
+    case "${zeile}" in ''|\#*) continue ;; esac
+    schluessel="${zeile%%=*}"
+    if ! grep -qE "^${schluessel}=" .env; then
+      echo "${zeile}" >> .env
+      echo "  ergaenzt: ${zeile}"
+      ergaenzt=$((ergaenzt+1))
+    fi
+  done < .env.example
+  echo "${ergaenzt} Schluessel ergaenzt (Sicherung: .env.bak)."
+  exit 0
+fi
+
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 
 echo "==> [1/4] Hole ${BRANCH}"
@@ -27,3 +46,24 @@ docker compose up -d --force-recreate
 
 echo "==> [4/4] Status"
 docker compose ps
+
+# Neue Schalter kommen mit Updates dazu, die bestehende .env kennt sie nicht -
+# und ein fehlender Schluessel wirkt wie ein absichtlich gesetzter Vorgabewert.
+# Genau daran scheitert sonst z. B. "CVE_DRY_RUN=false" lautlos.
+if [ -f .env ]; then
+  fehlend=""
+  while IFS= read -r zeile; do
+    case "${zeile}" in ''|\#*) continue ;; esac
+    schluessel="${zeile%%=*}"
+    grep -qE "^${schluessel}=" .env || fehlend="${fehlend} ${schluessel}"
+  done < .env.example
+  if [ -n "${fehlend}" ]; then
+    echo
+    echo "HINWEIS: In .env fehlen Schluessel aus .env.example:"
+    for k in ${fehlend}; do
+      echo "    ${k}=$(grep -E "^${k}=" .env.example | cut -d= -f2- | cut -d'#' -f1 | xargs)"
+    done
+    echo "  Ohne Eintrag gilt der eingebaute Vorgabewert. Uebernehmen mit:"
+    echo "    ./scripts/update.sh --env-ergaenzen"
+  fi
+fi

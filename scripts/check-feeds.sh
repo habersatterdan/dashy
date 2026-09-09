@@ -62,7 +62,7 @@ pruefe_proxy() {
       echo "  ${R}FEHLER${D} /feeds/${slug}  kein Feed (${art})"
       echo "         $(echo "${body}" | tr -d '\n' | head -c 120)" ;;
     404:*) echo "  ${R}FEHLER${D} /feeds/${slug}  404 - Route nicht vorhanden."
-           echo "         Fest eingebaut sind: heise-alerts, heise-security, bsi, cisa, cisco, kev."
+           echo "         Fest eingebaut sind nur: bsi, cisa, cisco, kev."
            echo "         Alles andere braucht FEEDn_SLUG/FEEDn_URL in config/endpoints.env." ;;
     50*:*) echo "  ${R}FEHLER${D} /feeds/${slug}  HTTP ${code} - nginx erreicht die Quelle nicht"
            echo "         (DNS im Container? Proxy des Firmennetzes?)" ;;
@@ -95,7 +95,7 @@ pruefe_direkt() {
 }
 
 echo "== Feeds ueber den Proxy (das sieht die Wand)"
-for slug in heise-alerts heise-security bsi cisa cisco kev; do pruefe_proxy "${slug}"; done
+for slug in bsi cisa cisco kev; do pruefe_proxy "${slug}"; done
 if [ -f config/endpoints.env ]; then
   for n in 1 2 3 4 5 6; do
     slug="$(grep -E "^FEED${n}_SLUG=" config/endpoints.env 2>/dev/null | cut -d= -f2- | tr -d '"')"
