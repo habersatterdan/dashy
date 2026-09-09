@@ -35,13 +35,26 @@ beurteile() {
 pruefe_proxy() {
   local slug="$1"
   local code body
+  # KEV ist eine JSON-Liste, kein RSS - dort ist "json" das richtige Ergebnis.
+  if [ "${slug}" = "kev" ]; then
+    code="$(curl -sk -m 20 -o /dev/null -w '%{http_code}' "${BASE}/feeds/kev" 2>/dev/null)"
+    body="$(curl -sk -m 20 "${BASE}/feeds/kev" 2>/dev/null | head -c 300)"
+    case "${code}:${body}" in
+      200:*vulnerabilities*|200:*catalogVersion*)
+        echo "  ${G}OK${D}     /feeds/kev  (CISA-Liste, JSON - kein RSS, das ist richtig so)" ;;
+      *) echo "  ${R}FEHLER${D} /feeds/kev  HTTP ${code}" ;;
+    esac
+    return
+  fi
   code="$(curl -sk -m 20 -o /dev/null -w '%{http_code}' "${BASE}/feeds/${slug}" 2>/dev/null)"
   body="$(curl -sk -m 20 "${BASE}/feeds/${slug}" 2>/dev/null | head -c 4000)"
   local art; art="$(beurteile "${body}")"
   case "${code}:${art}" in
     200:ok)  echo "  ${G}OK${D}     /feeds/${slug}  ($(echo "${body}" | grep -o '<item\|<entry' | wc -l | tr -d ' ') Eintraege im Anfang)" ;;
     200:xml-ohne-eintraege)
-      echo "  ${Y}LEER${D}   /feeds/${slug}  gueltiges XML, aber keine Eintraege" ;;
+      # Bei einem STATUSfeed ist das der Normalfall: kein Eintrag = keine
+      # Stoerung. Nur bei einem Nachrichtenfeed waere es verdaechtig.
+      echo "  ${G}OK${D}     /feeds/${slug}  gueltiges XML, derzeit keine Eintraege" ;;
     200:html)
       echo "  ${R}FEHLER${D} /feeds/${slug}  HTML statt Feed - Adresse veraltet?"
       echo "         $(echo "${body}" | tr -d '\n' | head -c 120)" ;;
@@ -54,22 +67,30 @@ pruefe_proxy() {
     50*:*) echo "  ${R}FEHLER${D} /feeds/${slug}  HTTP ${code} - nginx erreicht die Quelle nicht"
            echo "         (DNS im Container? Proxy des Firmennetzes?)" ;;
     000:*) echo "  ${R}FEHLER${D} /feeds/${slug}  keine Antwort - laeuft nginx?" ;;
+    30*:*)
+      echo "  ${R}FEHLER${D} /feeds/${slug}  HTTP ${code} - die Quelle ist umgezogen."
+      echo "         Nginx folgt Weiterleitungen bewusst nicht (sonst landet man"
+      echo "         irgendwo). Neues Ziel als FEEDn_URL eintragen." ;;
     *)     echo "  ${R}FEHLER${D} /feeds/${slug}  HTTP ${code}" ;;
   esac
 }
 
 pruefe_direkt() {
   local name="$1" url="$2"
-  local code body
+  local code body ziel
   code="$(curl -s -m 20 -o /dev/null -w '%{http_code}' -A 'NOCSignage/1.0' "${url}" 2>/dev/null)"
   body="$(curl -s -m 20 -A 'NOCSignage/1.0' "${url}" 2>/dev/null | head -c 2000)"
   local art; art="$(beurteile "${body}")"
-  if [ "${code}" = "200" ] && [ "${art}" = "ok" ]; then
-    echo "  ${G}OK${D}     ${name}"
+  if [ "${code}" = "200" ] && { [ "${art}" = "ok" ] || [ "${art}" = "xml-ohne-eintraege" ]; }; then
+    echo "  ${G}OK${D}     ${name}$([ "${art}" = "xml-ohne-eintraege" ] && echo "  (gueltig, derzeit leer)")"
     echo "         ${url}"
   else
     echo "  ${R}--${D}     ${name}  (HTTP ${code}, ${art})"
     echo "         ${url}"
+    case "${code}" in
+      30*) ziel="$(curl -s -m 15 -o /dev/null -w '%{redirect_url}' -A 'NOCSignage/1.0' "${url}" 2>/dev/null)"
+           [ -n "${ziel}" ] && echo "         ${Y}umgezogen nach:${D} ${ziel}" ;;
+    esac
   fi
 }
 

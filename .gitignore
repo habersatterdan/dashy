@@ -29,3 +29,4 @@ config/probes.txt
 # Seitenliste der Wand (Beispieldatei bleibt versioniert)
 config/pages.txt
 config/sources.txt
+config/cve-feeds.txt

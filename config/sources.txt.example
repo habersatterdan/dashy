@@ -12,16 +12,19 @@
 # Fehlt die Datei, zeigt /stoerungen/ die drei eingebauten Anbieter.
 # =============================================================================
 
-Microsoft 365     | m365
 Microsoft Azure   | azure
 Cisco             | cisco
+Fortinet          | fortinet
 
-# Weitere Beispiele - erst eintragen, wenn ./scripts/check-feeds.sh die
-# Kennung gruen meldet. Eine tote Quelle erzeugt sonst dauerhaft eine rote
-# Karte, und das stumpft ab.
-# Fortinet        | fortinet
-# VMware          | vmware
-# Sophos          | sophos
-# Veeam           | veeam
-# Atlassian       | atlassian
+# M365: Microsoft bietet keinen oeffentlichen Service-Health-Feed mehr an.
+# Diese Quelle meldet Aenderungen und Releases, KEINE Stoerungen - der Name
+# sagt das ausdruecklich, damit niemand daraus "M365 laeuft" liest.
+# Echte Tenant-Stoerungen: Service Health Dashboard im Admin Center.
+M365 Änderungen   | m365
+
+# Weitere - erst eintragen, wenn ./scripts/check-feeds.sh die Kennung gruen
+# meldet. Eine tote Quelle erzeugt sonst dauerhaft eine rote Karte, und
+# dauerhaft Rotes stumpft ab.
+# Golem Security  | golem-security
 # GitHub          | github
+# Atlassian       | atlassian
