@@ -739,6 +739,7 @@ Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
 |---|---|
 | `summary.headline` | Betreffzeile: *„3 neue Meldungen mit 9 CVEs (2x P1, 1x P2, 1x aktiv ausgenutzt)"* |
 | `summary.text` | Klartext für E-Mail oder Ticket, nach Dringlichkeit sortiert |
+| `summary.html` | für Teams *Post message* — Markdown verliert dort die Umbrüche |
 | `summary.markdown` | für Teams oder Slack: Titel als klickbare Überschrift, darunter eine Zeile Dringlichkeit/CVSS/Produkte |
 | `highest_priority` | `P1`/`P2` — für die Weiterleitungsregel |
 | `summary.kev_cves` | aktiv ausgenutzt: das schärfste Signal |
@@ -751,11 +752,16 @@ in der Nachricht. Du greifst genau ein Feld heraus:
 | Ziel | Ausdruck |
 |---|---|
 | **Teams (empfohlen)** – *Post adaptive card* | `@{triggerBody()?['card']}` |
-| Teams als Text – *Post message* | `@{triggerBody()?['summary']?['markdown']}` |
+| Teams als Text – *Post message* | `@{triggerBody()?['summary']?['html']}` |
 | E-Mail – Betreff | `@{triggerBody()?['summary']?['headline']}` |
 | E-Mail – Text | `@{triggerBody()?['summary']?['text']}` |
 | Nur bei P1 weiterleiten – Bedingung | `@equals(triggerBody()?['highest_priority'], 'P1')` |
 | Nur bei aktiv ausgenutzt | `@greater(triggerBody()?['summary']?['kev_count'], 0)` |
+
+> **Warum HTML und nicht Markdown bei *Post message*:** Der Teams-Connector
+> verwirft dort die Zeilenumbrüche — alles läuft zu einem Absatz zusammen und
+> die Trennlinien landen mitten im Text. HTML rendert er zuverlässig.
+> `summary.markdown` bleibt für Slack und alles andere.
 
 **`card` ist eine fertige Adaptive Card (1.4)** — Kopfzeile, Kennzahlen als
 FactSet, je Meldung ein Block mit Dringlichkeitsfarbe, klickbar zum Advisory.
@@ -789,6 +795,11 @@ Drei Entscheidungen, die den Unterschied machen:
 - **Titel zuerst**, als klickbare Überschrift. Das ist die Information, nach der
   man sucht — Dringlichkeit, CVSS und betroffene Produkte stehen darunter in
   *einer* Zeile.
+- **Datum als Alter.** „vor 4 Tagen" beantwortet die Frage, um die es geht —
+  *ist das frisch?* Ein Datum allein muss man erst umrechnen. Im Klartext steht
+  beides (`08.09.2026 (gestern)`), weil ein Ticket ein festes Datum braucht.
+  Die drei Feed-Formate — RFC-822, ISO und Ciscos Eigenbau — werden dabei
+  vereinheitlicht.
 
 Ebenfalls behoben: Die Produkterkennung suchte den Watchlist-Begriff irgendwo
 im Text. „exchange" traf damit auch in „data exchanged", „cisco" in
