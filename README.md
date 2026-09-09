@@ -739,7 +739,7 @@ Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
 |---|---|
 | `summary.headline` | Betreffzeile: *„3 neue Meldungen mit 9 CVEs (2x P1, 1x P2, 1x aktiv ausgenutzt)"* |
 | `summary.text` | Klartext für E-Mail oder Ticket, nach Dringlichkeit sortiert |
-| `summary.markdown` | für Teams oder Slack, mit 🔴/🟠 und klickbaren Titeln |
+| `summary.markdown` | für Teams oder Slack: Titel als klickbare Überschrift, darunter eine Zeile Dringlichkeit/CVSS/Produkte |
 | `highest_priority` | `P1`/`P2` — für die Weiterleitungsregel |
 | `summary.kev_cves` | aktiv ausgenutzt: das schärfste Signal |
 
@@ -776,6 +776,23 @@ den 10 Einträgen eines echten Laufs werden so 3 Meldungen.
 
 `cve` bleibt als Einzelfeld erhalten (die dringendste der Gruppe), damit
 vorhandene Regeln im Zielsystem weiter greifen.
+
+### Was die Darstellung lesbar hält
+
+Drei Entscheidungen, die den Unterschied machen:
+
+- **Tracking-Anhang der URL weg.** Cisco hängt an jede Advisory-Adresse einen
+  langen RSS-Herkunftsparameter — eine Zeile Kauderwelsch pro Meldung. Der Link
+  funktioniert ohne genauso.
+- **Höchstens vier CVE-Nummern sichtbar**, danach „+ 5 weitere". Neun Nummern
+  nebeneinander liest niemand; die vollständige Liste steht ohnehin in `cves`.
+- **Titel zuerst**, als klickbare Überschrift. Das ist die Information, nach der
+  man sucht — Dringlichkeit, CVSS und betroffene Produkte stehen darunter in
+  *einer* Zeile.
+
+Ebenfalls behoben: Die Produkterkennung suchte den Watchlist-Begriff irgendwo
+im Text. „exchange" traf damit auch in „data exchanged", „cisco" in
+„franciscoNet". Jetzt wird auf Wortgrenzen geprüft.
 
 Schlägt die Zustellung fehl, gilt **kein** Fund als gemeldet — der nächste
 Durchlauf versucht es erneut. Nichts geht still verloren.
