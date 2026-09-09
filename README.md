@@ -630,13 +630,37 @@ Meldet **externe** Schwachstellen, die **eure** Produkte betreffen — mit echte
 CVSS, nicht mit Stichwortraten.
 
 ```
-Advisory-Feeds (BSI, CISA, Cisco, Fortinet, VMware, MSRC)
+Advisory-Feeds (BSI, CISA, Cisco PSIRT, Fortinet, VMware + eigene)
    -> CVE-IDs extrahieren
    -> Watchlist-Abgleich (config/watchlist.txt)   "betrifft uns das?"
    -> CVSS von der NVD-API + KEV-Abgleich          "wie schlimm ist es wirklich?"
-   -> Dedup + Priorisierung
-   -> POST JSON an euren Endpoint
+   -> Advisories gruppieren, Gedächtnis abgleichen "ist das neu?"
+   -> EIN gebündelter POST je Durchlauf, fertig formatiert
 ```
+
+### Takt und Gedächtnis — die zwei häufigsten Fragen
+
+**Wie oft läuft er?** Alle **30 Minuten** (`CVE_POLL_SECONDS=1800` in `.env`),
+plus einmal sofort beim Start des Containers. Findet ein Durchlauf nichts
+Neues, wird auch **nichts gesendet** — es gibt keine „alles ruhig"-Meldung.
+
+**Meldet er nur Neues?** Ja. Jede CVE wird **genau einmal** gemeldet; danach
+steht sie in `state/seen.json` und wird in allen folgenden Durchläufen
+übersprungen — auch wenn sie wochenlang in den Feeds bleibt. Was du
+bekommst, ist der Zuwachs, nicht der Bestand.
+
+Vier Details dazu, die im Betrieb zählen:
+
+- **Probelauf und Echtbetrieb führen getrennt Buch** (`seen-dryrun.json` vs.
+  `seen.json`). Sonst hätte ein Testlauf die Funde als „erledigt" abgehakt und
+  der erste scharfe Lauf wäre stumm geblieben.
+- **Erst bei erfolgreicher Zustellung** gilt etwas als gemeldet. Antwortet der
+  Empfänger nicht, bleibt das Gedächtnis unverändert und der nächste Durchlauf
+  versucht es erneut. Nichts geht still verloren.
+- **`CVE_MAX_PER_RUN` (10)** deckelt jeden Durchlauf. Ein Rückstand wird über
+  mehrere Läufe abgebaut, nicht auf einmal.
+- **`state/seen.json` nicht löschen**, sobald der Watcher scharf ist — sonst
+  gilt der gesamte Bestand wieder als neu.
 
 ### Priorisierung
 | Bedingung | Priorität |
@@ -647,19 +671,39 @@ Advisory-Feeds (BSI, CISA, Cisco, Fortinet, VMware, MSRC)
 | darunter | P3 — wird nicht gesendet, nur als gesehen vermerkt |
 
 ### Payload
+
+Ein Aufruf je Durchlauf mit allen Funden:
+
 ```json
 {
-  "event": "vulnerability.detected",
-  "detected_at": "2026-09-04T08:12:33+00:00",
-  "priority": "P1",
-  "cve": "CVE-2026-20212",
-  "cvss": { "score": 9.8, "severity": "CRITICAL", "vector": "CVSS:3.1/AV:N/...", "version": "3.1", "source": "NVD" },
-  "kev": { "listed": true, "due_date": "2026-09-18", "known_ransomware": "Known" },
-  "matched_products": ["cisco", "ios xe"],
-  "title": "Cisco IOS XE Software Vulnerability",
-  "source": "Cisco PSIRT",
-  "published": "Tue, 02 Sep 2026 10:00:00 GMT",
-  "link": "https://sec.cloudapps.cisco.com/..."
+  "event": "vulnerability.batch",
+  "detected_at": "2026-09-09T05:12:56+00:00",
+  "highest_priority": "P1",
+  "summary": {
+    "total": 4, "p1": 3, "p2": 1,
+    "kev_count": 3, "kev_cves": ["CVE-2026-20127", "…"],
+    "products": ["catalyst", "cisco"],
+    "headline": "4 neue Meldungen mit 10 CVEs (3x P1, 1x P2, 3x aktiv ausgenutzt)",
+    "text":     "… Klartext für E-Mail und Ticket …",
+    "markdown": "… für Slack …",
+    "html":     "… für Teams 'Post message' …"
+  },
+  "card": { "type": "AdaptiveCard", "…": "fertig für Teams" },
+  "findings": [
+    {
+      "priority": "P1",
+      "cve": "CVE-2026-20127",
+      "cves": ["CVE-2026-20127", "CVE-2026-20182", "CVE-2026-20245"],
+      "cve_count": 3,
+      "cvss": { "score": 10.0, "severity": "CRITICAL", "vector": "…", "source": "NVD" },
+      "kev": { "listed": true, "due_date": "2026-09-18", "known_ransomware": "Known" },
+      "matched_products": ["catalyst", "cisco"],
+      "title": "Cisco Catalyst SD-WAN … Privilege Escalation Vulnerability",
+      "source": "Cisco PSIRT",
+      "published": "2026-09-05 10:00:00.0",
+      "link": "https://sec.cloudapps.cisco.com/…"
+    }
+  ]
 }
 ```
 
@@ -670,13 +714,45 @@ Advisory-Feeds (BSI, CISA, Cisco, Fortinet, VMware, MSRC)
 2. **Ziel eintragen** — `CVE_WEBHOOK_URL` (+ optional `CVE_WEBHOOK_AUTH_HEADER`)
    in `config/secrets.env`. Ein **NVD-API-Key** (kostenlos) beschleunigt die
    CVSS-Abfragen deutlich; ohne Key wartet der Watcher 7 s je CVE.
-3. **Erst beobachten** — der Dienst startet mit `CVE_DRY_RUN=true` und schreibt
+3. **Zustellung prüfen, ohne auf einen echten Fund zu warten:**
+   ```bash
+   docker compose exec cve-watcher python /app/watch.py --test-webhook
+   ```
+   Sendet einen erfundenen Fund in **derselben Struktur** wie im Echtfall — so
+   baut ihr die Logic App nicht gegen eine Form, die später nie ankommt. Der
+   Payload trägt `"event": "vulnerability.test"`; darauf lässt sich im
+   Zielsystem filtern, damit Tests kein Ticket erzeugen.
+4. **Erst beobachten** — der Dienst startet mit `CVE_DRY_RUN=true` und schreibt
    nur ins Log:
    ```bash
    docker compose logs -f cve-watcher
+   docker compose exec cve-watcher python /app/watch.py --once   # einmal jetzt
    ```
-   Wenn die richtigen Meldungen auftauchen, in `.env` `CVE_DRY_RUN=false` setzen
-   und `docker compose up -d cve-watcher`.
+   Wenn die richtigen Meldungen auftauchen, scharf schalten:
+   ```bash
+   sed -i 's/^CVE_DRY_RUN=true/CVE_DRY_RUN=false/' .env
+   ./scripts/update.sh
+   ```
+   In der Startzeile muss dann `DRY_RUN=False` und `Gedaechtnis=/state/seen.json`
+   stehen. Steht der Schlüssel gar nicht in `.env`, greift lautlos der
+   Vorgabewert — `./scripts/update.sh --env-ergaenzen` trägt fehlende nach.
+5. **Eigene Quellen ergänzen** — `config/cve-feeds.txt` (`Name | URL`). Feed-
+   Adressen veralten; prüfen mit `./scripts/check-feeds.sh --kandidaten`.
+   Antwortet eine Quelle mit HTML statt XML, sagt das Log das ausdrücklich.
+
+### Alle Stellschrauben
+
+| Schlüssel in `.env` | Standard | Wirkung |
+|---|---|---|
+| `CVE_POLL_SECONDS` | `1800` | Abstand zwischen zwei Durchläufen |
+| `CVE_DRY_RUN` | `true` | `true` schreibt nur ins Log, sendet nichts |
+| `CVE_MIN_CVSS` | `7.0` | ab hier P2; darunter nur vermerkt, nicht gemeldet |
+| `CVE_MAX_PER_RUN` | `10` | höchstens so viele Funde je Durchlauf |
+| `CVE_BATCH` | `true` | ein gebündelter Aufruf statt einer je CVE |
+| `CVE_ADAPTIVE_CARD` | `true` | fertige Teams-Karte unter `card` mitschicken |
+
+Geheimnisse gehören nach `config/secrets.env`: `CVE_WEBHOOK_URL`,
+`CVE_WEBHOOK_AUTH_HEADER`, `NVD_API_KEY`.
 
 ### Warum Dry-Run zuerst
 Ein Webhook-Sender alarmiert aktiv. Beim ersten Lauf sind alle CVEs neu — ohne
@@ -696,7 +772,12 @@ muss auf einen Endpoint zeigen, der HTTP POST mit JSON annimmt. Optionen:
 | **Alerting-Tool** (Opsgenie, PagerDuty, Alerta …) | wenn ihr sowas schon habt |
 | **`scripts/test-webhook-receiver.py`** | nur zum Testen: schreibt eingehendes JSON ins Terminal |
 
-**Microsoft Teams braucht einen Zwischenschritt.** Teams akzeptiert kein freies
+> **Für Teams ist der Zwischenschritt inzwischen erledigt:** Der Payload bringt
+> unter `card` eine fertige Adaptive Card und unter `summary.html` eine
+> Teams-taugliche HTML-Fassung mit. In der Logic App genügt damit ein einziges
+> Feld — siehe *Konkret in der Logic App*.
+
+**Historischer Hinweis.** Teams akzeptiert kein freies
 JSON, sondern erwartet eine Adaptive Card, und die klassischen
 Office-365-Connector-Webhooks werden abgelöst. Der übliche Weg ist ein
 **Power-Automate-Flow** („Wenn eine HTTP-Anfrage empfangen wird" → Nachricht
@@ -710,7 +791,7 @@ Zum Ausprobieren ohne jede Anbindung:
 # in config/secrets.env:  CVE_WEBHOOK_URL=http://172.17.0.1:9000/hook
 ```
 
-### Gebündelt statt einzeln
+### Ein Aufruf statt zehn
 
 Standardmäßig geht **ein Webhook je Durchlauf** raus, der alle Funde enthält —
 nicht einer je CVE. Bei einem Rückstand wären das sonst zehn Aufrufe
@@ -733,7 +814,7 @@ hintereinander, und eine Flut stumpft ab, bis niemand mehr hinsieht.
 `summary` und `highest_priority` stehen bewusst oben: Damit entscheidet die
 Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
 
-### Fertig formatiert — im Zielsystem muss kein Text gebaut werden
+### Fertig formatiert — im Zielsystem wird kein Text gebaut
 
 | Feld | wofür |
 |---|---|
@@ -782,6 +863,24 @@ den 10 Einträgen eines echten Laufs werden so 3 Meldungen.
 
 `cve` bleibt als Einzelfeld erhalten (die dringendste der Gruppe), damit
 vorhandene Regeln im Zielsystem weiter greifen.
+
+### So sieht es am Ende aus
+
+`summary.markdown` (Slack) bzw. `summary.html` (Teams) liefern das hier fertig:
+
+```
+4 neue Meldungen mit 10 CVEs (3x P1, 1x P2, 3x aktiv ausgenutzt)
+
+Cisco Secure Firewall Management Center Authentication Bypass
+🔴 P1 · CVSS 10.0 · cisco · gestern
+CVE-2026-20079
+
+Cisco Catalyst SD-WAN Privilege Escalation
+🔴 P1 · CVSS 10.0 · ⚠️ aktiv ausgenutzt · catalyst, cisco · vor 4 Tagen
+CVE-2026-20127, CVE-2026-20182, CVE-2026-20245
+```
+
+Der Titel ist klickbar und führt direkt zum Advisory.
 
 ### Was die Darstellung lesbar hält
 
