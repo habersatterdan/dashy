@@ -247,6 +247,8 @@ services:
       - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
       - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
+      # true = ein gebuendelter Aufruf je Durchlauf statt einer je CVE.
+      - CVE_BATCH=${CVE_BATCH:-true}
       # Mehrere CA-Dateien, durch ":" getrennt, ZUSAETZLICH zum System-Store.
       # Nicht SSL_CERT_FILE verwenden - das ersetzt den Store, statt ihn zu
       # ergaenzen. Das Host-Buendel steht zuerst: es enthaelt die Proxy-CA.

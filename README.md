@@ -710,6 +710,37 @@ Zum Ausprobieren ohne jede Anbindung:
 # in config/secrets.env:  CVE_WEBHOOK_URL=http://172.17.0.1:9000/hook
 ```
 
+### Gebündelt statt einzeln
+
+Standardmäßig geht **ein Webhook je Durchlauf** raus, der alle Funde enthält —
+nicht einer je CVE. Bei einem Rückstand wären das sonst zehn Aufrufe
+hintereinander, und eine Flut stumpft ab, bis niemand mehr hinsieht.
+
+```json
+{
+  "event": "vulnerability.batch",
+  "highest_priority": "P1",
+  "summary": {
+    "total": 4, "p1": 1, "p2": 3,
+    "kev_count": 1, "kev_cves": ["CVE-2026-11111"],
+    "products": ["cisco", "fortinet"],
+    "headline": "4 neue Schwachstellen (1x P1, 3x P2, 1x aktiv ausgenutzt)"
+  },
+  "findings": [ { "cve": "...", "priority": "...", "cvss": {...}, ... } ]
+}
+```
+
+`summary` und `highest_priority` stehen bewusst oben: Damit entscheidet die
+Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
+`headline` ist als fertige Betreffzeile gedacht.
+
+Schlägt die Zustellung fehl, gilt **kein** Fund als gemeldet — der nächste
+Durchlauf versucht es erneut. Nichts geht still verloren.
+
+Einzelversand (ein Aufruf je CVE) mit `CVE_BATCH=false` in `.env`.
+`--test-webhook` sendet dieselbe Struktur, damit die Logic App nicht gegen
+eine Form gebaut wird, die später nie ankommt.
+
 ## Alert-Wand (`/wall/`)
 
 Eine eigengestaltete Seite außerhalb von Dashys Kartenraster, weil der Browser
