@@ -743,8 +743,28 @@ Logic App über eine Weiterleitung, **ohne** die Liste durchgehen zu müssen.
 | `highest_priority` | `P1`/`P2` — für die Weiterleitungsregel |
 | `summary.kev_cves` | aktiv ausgenutzt: das schärfste Signal |
 
-In der Logic App genügt damit ein Feld: `summary.markdown` in die Teams-Karte,
-`summary.headline` als Betreff. Kein Schleifenbau, kein String-Zusammensetzen.
+### Konkret in der Logic App
+
+Der Payload wird **nicht** als Ganzes weitergereicht — dann steht das rohe JSON
+in der Nachricht. Du greifst genau ein Feld heraus:
+
+| Ziel | Ausdruck |
+|---|---|
+| **Teams (empfohlen)** – *Post adaptive card* | `@{triggerBody()?['card']}` |
+| Teams als Text – *Post message* | `@{triggerBody()?['summary']?['markdown']}` |
+| E-Mail – Betreff | `@{triggerBody()?['summary']?['headline']}` |
+| E-Mail – Text | `@{triggerBody()?['summary']?['text']}` |
+| Nur bei P1 weiterleiten – Bedingung | `@equals(triggerBody()?['highest_priority'], 'P1')` |
+| Nur bei aktiv ausgenutzt | `@greater(triggerBody()?['summary']?['kev_count'], 0)` |
+
+**`card` ist eine fertige Adaptive Card (1.4)** — Kopfzeile, Kennzahlen als
+FactSet, je Meldung ein Block mit Dringlichkeitsfarbe, klickbar zum Advisory.
+Sie geht unverändert an *Post adaptive card in a chat or channel*. Kein
+JSON-Zusammenbau in der Logic App: genau die Stelle, an der solche Ketten
+sonst brechen.
+
+Brauchst du sie nicht: `CVE_ADAPTIVE_CARD=false` in `.env` spart etwa die
+Hälfte der Nutzlast.
 
 ### Ein Advisory ist eine Meldung, nicht zwölf
 

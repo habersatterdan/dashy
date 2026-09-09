@@ -249,6 +249,8 @@ services:
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
       # true = ein gebuendelter Aufruf je Durchlauf statt einer je CVE.
       - CVE_BATCH=${CVE_BATCH:-true}
+      # Fertige Adaptive Card fuer Teams im Payload mitschicken.
+      - CVE_ADAPTIVE_CARD=${CVE_ADAPTIVE_CARD:-true}
       # Mehrere CA-Dateien, durch ":" getrennt, ZUSAETZLICH zum System-Store.
       # Nicht SSL_CERT_FILE verwenden - das ersetzt den Store, statt ihn zu
       # ergaenzen. Das Host-Buendel steht zuerst: es enthaelt die Proxy-CA.
