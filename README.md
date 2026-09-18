@@ -18,6 +18,21 @@ Raspberry Pi 5
 
 ---
 
+## Für Kollegen: ein Befehl für alles
+
+```bash
+./scripts/add.sh
+```
+
+Fragt, was auf die Wand soll — Zabbix-Dashboard, Weboberfläche,
+Nachrichtenquelle oder Grafana-Dashboard —, trägt es in die richtige Datei ein
+und **prüft, ob es danach wirklich lädt**. Beim Zabbix-Dashboard erledigt es
+dabei die drei Fallen automatisch: Pfad über den Proxy, `&kiosk=1` anhängen,
+Freigabe prüfen.
+
+**Bedienungsanleitung fürs Team: [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md)** —
+eine Seite, fünf Aufgaben, kein Vorwissen nötig.
+
 ## Wo trage ich was ein?
 
 **Die wichtigste Tabelle dieses Dokuments.** Alle Dateien unter `config/` sind
@@ -27,6 +42,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 |---|---|---|
 | **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
+| **Spalten auf `/news/`** festlegen | `config/news.txt` | `docker compose restart nginx` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
@@ -369,6 +385,29 @@ git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 ./scripts/render-config.py          # trägt deine Werte wieder ein
 docker compose up -d --force-recreate
 ```
+
+## Sicherheitsnachrichten: `/news/`
+
+Mehrere Quellen **nebeneinander** statt hintereinander — eine Spalte je Quelle,
+je sieben aktuelle Meldungen.
+
+Der Unterschied ist inhaltlich, nicht kosmetisch: In einer gemischten Liste
+sieht man nicht, ob *eine* Quelle viel meldet oder *alle gleichzeitig*. Taucht
+dasselbe Thema in drei Spalten auf, ist es die große Sache des Tages — das
+erkennt man hier in einer Sekunde.
+
+- **CISAs KEV-Liste wird gegengeprüft.** Steht eine CVE aus einer Meldung dort
+  drin, bekommt sie `⚠ AKTIV AUSGENUTZT` und einen roten Rand — autoritativ,
+  keine Textanalyse. Oben rechts steht, wie viele der angezeigten Meldungen
+  betroffen sind.
+- **Erst ohne KEV-Treffer** greift eine grobe Stichwortsuche für die Abstufung.
+- **Eine tote Quelle bleibt sichtbar** („⚠ Quelle nicht erreichbar" samt Grund),
+  statt einfach leer zu sein.
+
+Spalten festlegen in `config/news.txt` (`Überschrift | Feed-Kennung`), oder
+bequemer mit `./scripts/add.sh feed`. Vier bis fünf Spalten passen auf einen
+Bildschirm; mehr wird unlesbar — dann lieber zwei Nachrichtenseiten in die
+Rotation.
 
 ## Mission Control: Grafana auf dem Pi
 

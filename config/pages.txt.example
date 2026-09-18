@@ -17,6 +17,7 @@
 Betriebslage      | /lage/         | 60
 Störungen         | /stoerungen/   | 30
 Sicherheit        | /wall/         | 30
+Nachrichten       | /news/         | 40
 
 # --- Anmeldung einmalig oeffnen ("Als Gast anmelden" simulieren) --------------
 # Zabbix zeigt seine Dashboards erst nach einem Klick auf "Als Gast anmelden" -

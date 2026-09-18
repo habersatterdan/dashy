@@ -1,0 +1,21 @@
+# =============================================================================
+# SICHERHEITSNACHRICHTEN AUF /news/
+# -----------------------------------------------------------------------------
+# Eine Zeile pro Spalte:      Überschrift | Feed-Kennung
+#
+# Die Feed-Kennung ist der Teil hinter /feeds/ - fest eingebaut sind
+# bsi, cisa, cisco, kev; weitere legt ihr in config/endpoints.env als
+# FEEDn_SLUG/FEEDn_URL an (oder mit ./scripts/add.sh).
+#
+# Vier bis fünf Spalten passen auf einen Bildschirm. Mehr wird unlesbar -
+# lieber zwei Nachrichtenseiten in die Rotation nehmen.
+#
+# Kopieren:  cp config/news.txt.example config/news.txt
+# Danach:    docker compose restart nginx
+# =============================================================================
+
+BSI CERT-Bund   | bsi
+CISA Advisories | cisa
+Cisco PSIRT     | cisco
+Fortinet PSIRT  | fortinet
+Golem Security  | golem-security
