@@ -96,7 +96,8 @@ def main() -> int:
         ALLOW_EMPTY.add(stem + "_PATH")
     profile = args.profile or dotenv.get("DASHY_PROFILE", "enterprise")
 
-    roots = [ROOT / "profiles" / profile, ROOT / "nginx" / "conf.d" / "extra"]
+    roots = [ROOT / "profiles" / profile, ROOT / "nginx" / "conf.d" / "extra",
+             ROOT / "grafana" / "provisioning"]
     templates = sorted(t for r in roots if r.is_dir() for t in r.rglob("*.tmpl"))
     if not templates:
         print(f"Keine *.tmpl gefunden (Profil: {profile}) - nichts zu rendern.")
@@ -141,6 +142,15 @@ def main() -> int:
         # Ein ungenutzter Einbett-Platz ist kein Fehler, sondern der
         # Normalfall - dafuer gibt es vier Vorlagen. Nur melden, was jemand
         # halb ausgefuellt hat.
+        # Grafana-Datenquelle ohne Zabbix-Zugang waere eine kaputte Quelle,
+        # die bei jedem Panel einen Fehler wirft. Lieber gar keine.
+        if target.name == "zabbix.yml" and unresolved:
+            if target.exists():
+                target.unlink()
+            print(f"  UEBERSPRUNGEN {rel}  (offene Platzhalter: "
+                  f"{', '.join(unresolved)})")
+            continue
+
         slot = re.match(r"^(embed|feed)(\d+)\.conf$", target.name)
         if slot:
             k = f"{slot.group(1).upper()}{slot.group(2)}"

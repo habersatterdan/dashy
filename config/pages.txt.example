@@ -27,6 +27,18 @@ Sicherheit        | /wall/         | 30
 # Zeilen mit @login sind KEINE Wandseiten und tauchen in der Rotation nicht auf.
 @login | /zabbix/index.php?form=default&enter=Sign+in+as+guest
 
+# --- Alarmseite ---------------------------------------------------------------
+# Bei einer kritischen Lage bricht die Wand die Rotation ab und bleibt HIER,
+# bis Entwarnung ist. Ohne diese Zeile wird /lage/ genommen.
+@alarm | /lage/
+
+# --- Grafana ------------------------------------------------------------------
+# Dieselben Zabbix-Daten, wandtauglich dargestellt. &kiosk blendet Grafanas
+# Menue aus, refresh erzwingt die Aktualisierung.
+Lagebild      | /grafana/d/noc-lagebild/?kiosk&refresh=30s  | 60
+Infrastruktur | /grafana/d/noc-infra/?kiosk&refresh=1m      | 45
+Security      | /grafana/d/noc-security/?kiosk&refresh=1m   | 45
+
 # --- Zabbix-Dashboards --------------------------------------------------------
 # WICHTIG - drei Regeln:
 #   1. Immer mit /zabbix/ beginnen, NIE mit http://server/... - nur ueber den

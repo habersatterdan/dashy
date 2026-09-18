@@ -1,0 +1,34 @@
+# -----------------------------------------------------------------------------
+# Zabbix als Grafana-Datenquelle.
+#
+# Wird von scripts/render-config.py aus config/endpoints.env + secrets.env
+# erzeugt. Fehlt ZABBIX_URL oder ZABBIX_API_TOKEN, wird die Datei bewusst NICHT
+# geschrieben - Grafana startet dann ohne Datenquelle statt mit einer kaputten.
+#
+# Das Plugin "alexanderzobnin-zabbix-app" wird beim ersten Start automatisch
+# installiert (GF_INSTALL_PLUGINS in docker-compose.yml).
+# -----------------------------------------------------------------------------
+apiVersion: 1
+
+datasources:
+  - name: Zabbix
+    type: alexanderzobnin-zabbix-datasource
+    uid: zabbix
+    access: proxy
+    # Grafana spricht selbst mit Zabbix - nicht der Browser. Der Token
+    # verlaesst den Server nie.
+    url: ${ZABBIX_BASE}/api_jsonrpc.php
+    isDefault: true
+    editable: false
+    jsonData:
+      authType: token
+      trends: true
+      # Ab 7 Tagen aus den Trenddaten lesen: Verlaufspanels ueber Wochen
+      # wuerden sonst Millionen Rohwerte ziehen und den Pi ausbremsen.
+      trendsFrom: 7d
+      trendsRange: 4d
+      cacheTTL: 1h
+      timeout: 30
+      disableReadOnlyUsersAck: true
+    secureJsonData:
+      apiToken: ${ZABBIX_API_TOKEN}

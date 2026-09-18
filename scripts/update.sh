@@ -38,8 +38,9 @@ echo "==> [1/4] Hole ${BRANCH}"
 git fetch origin "${BRANCH}"
 git reset --hard "origin/${BRANCH}"
 
-echo "==> [2/4] Rendere Konfiguration aus config/*.env"
+echo "==> [2/4] Rendere Konfiguration und baue Grafana-Dashboards"
 python3 ./scripts/render-config.py
+python3 ./scripts/build-dashboards.py
 
 echo "==> [3/4] Erzeuge Container neu (loest das Inode-Problem)"
 docker compose up -d --force-recreate

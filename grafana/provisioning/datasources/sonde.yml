@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+# Unsere eigene Sonde und der CVE-Watcher als Grafana-Datenquelle.
+#
+# WARUM: Zabbix weiss, was IN eurem Netz passiert. Die Sonde misst von der Wand
+# aus - Erreichbarkeit, Antwortzeit, Zertifikatsrestlaufzeit - und der
+# CVE-Watcher kennt die externe Bedrohungslage. Erst zusammen ergibt das ein
+# Lagebild. Das Infinity-Plugin liest dafuer schlicht unser JSON.
+#
+# Kein Token noetig: Nginx liefert die Dateien im internen Netz aus.
+# -----------------------------------------------------------------------------
+apiVersion: 1
+
+datasources:
+  - name: Sonde
+    type: yesoreyeram-infinity-datasource
+    uid: sonde
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      # Grafana laeuft im selben Docker-Netz - Containername statt Hostname.
+      global_queries: []
+      allowedHosts:
+        - http://nginx/

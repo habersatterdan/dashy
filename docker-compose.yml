@@ -89,6 +89,70 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
+  # Grafana - die Messwerte gross und schoen.
+  #
+  # WARUM ZUSAETZLICH ZU ZABBIX: Zabbix ist ein hervorragender Sammler, seine
+  # Oberflaeche ist aber fuer den Schreibtisch gebaut. Grafana liest dieselben
+  # Daten ueber das Zabbix-Plugin und stellt sie wandtauglich dar - grosse
+  # Zahlen, Verlaeufe, Trends. Kein zweiter Agent, keine zweite Datenhaltung.
+  #
+  # Die Dashboards liegen als JSON im Repo (grafana/dashboards) und werden beim
+  # Start eingelesen: versioniert und nach einem Neuaufbau sofort wieder da -
+  # anders als etwas im Browser Zusammengeklicktes.
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: grafana
+    restart: unless-stopped
+    expose:
+      - "3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
+    environment:
+      # Laeuft hinter unserem Nginx unter /grafana/ - ohne diese beiden Zeilen
+      # zeigen alle internen Links ins Leere.
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Die Wand bedient niemand: Anzeige ohne Anmeldung, aber nur lesend.
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_HIDE_LOGIN:-false}
+      # Einbetten in die Kiosk-Seite erlauben (X-Frame-Options aus).
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Zabbix-Plugin + Infinity (liest unser eigenes probe.json/cve.json).
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app,yesoreyeram-infinity-datasource
+      - GF_PLUGINS_PREINSTALL_DISABLED=false
+      # Kein Telemetrie-Rauschen, keine Werbung auf der Wand.
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_NEWS_NEWS_FEED_ENABLED=false
+      - GF_USERS_DEFAULT_THEME=dark
+      # Firmen-CA, sonst scheitert der Abruf hinter dem SSL-Inspection-Proxy.
+      - SSL_CERT_FILE=/etc/ssl/host-ca-bundle.crt
+      - TZ=${TZ:-Europe/Berlin}
+    extra_hosts:
+      - "${EXTRA_HOST_1:-nicht-gesetzt.invalid:0.0.0.0}"
+      - "${EXTRA_HOST_2:-nicht-gesetzt2.invalid:0.0.0.0}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health | grep -q ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
   # Watchtower - automatic container image updates on a nightly schedule.
   # ---------------------------------------------------------------------------
   watchtower:
@@ -263,6 +327,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  # Grafanas eigene Datenbank (Benutzer, Plugin-Zustand). Die Dashboards
+  # kommen aus dem Repo, hier liegt nur, was Grafana selbst braucht.
+  grafana-data:
 
 networks:
   signage:

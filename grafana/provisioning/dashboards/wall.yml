@@ -1,0 +1,16 @@
+# Laedt alle Dashboards aus /var/lib/grafana/dashboards beim Start.
+# Sie liegen als Datei im Repo: versioniert, reproduzierbar, kein Klicken.
+apiVersion: 1
+
+providers:
+  - name: NOC Wall
+    orgId: 1
+    folder: NOC
+    type: file
+    disableDeletion: false
+    # Aenderungen an den JSON-Dateien werden im Betrieb uebernommen.
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

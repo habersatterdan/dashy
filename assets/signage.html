@@ -22,6 +22,21 @@
       border-radius:50%; background:#33414f; }
     #dots span.on { background:var(--accent); }
     #clock { font-variant-numeric:tabular-nums; }
+
+    /* --- Alarmzustand ---------------------------------------------------
+       Wenn etwas Kritisches laeuft, bricht die Wand die Rotation ab und
+       bleibt auf der Lageseite. Damit das auch aus dem Augenwinkel auffaellt:
+       ein pulsierender Rahmen. Bewusst langsam (2,4 s) - schnelles Blinken
+       nervt nach zehn Minuten und wird dann ignoriert oder abgeschaltet. */
+    #alarm { position:fixed; inset:0; z-index:9; pointer-events:none;
+      border:0 solid #d03b3b; transition:border-width .3s ease; }
+    body.alarm #alarm { border-width:10px; animation:puls 2.4s ease-in-out infinite; }
+    @keyframes puls { 0%,100% { border-color:#d03b3b; }
+                      50%     { border-color:#6b1f1f; } }
+    #alarmtext { position:fixed; top:34px; left:0; right:0; z-index:11;
+      background:#d03b3b; color:#fff; font-weight:700; letter-spacing:.06em;
+      padding:6px 18px; font-size:15px; display:none; }
+    body.alarm #alarmtext { display:block; }
   </style>
 </head>
 <body>
@@ -30,6 +45,8 @@
     <div id="dots"></div>
     <div id="clock">--:--:--</div>
   </div>
+  <div id="alarmtext"></div>
+  <div id="alarm"></div>
   <div id="stage"><iframe id="frame" src="/" title="dashboard"></iframe></div>
 
   <script>
@@ -88,6 +105,9 @@
         // einmal vor der Rotation aufgerufen wird, um eine Sitzung zu oeffnen
         // (z. B. Zabbix' Gast-Anmeldung). Siehe warmup().
         if (parts[0].toLowerCase() === '@login') { LOGINS.push(parts[1]); continue; }
+        // "@alarm | <url>" ist die Seite, auf die bei einer kritischen Lage
+        // umgeschaltet wird. Ohne die Zeile bleibt es bei /lage/.
+        if (parts[0].toLowerCase() === '@alarm') { ALARM_PAGE = parts[1]; continue; }
         const secs = parseInt(parts[2], 10);
         out.push({ name: parts[0] || parts[1],
                    url: parts[1],
@@ -98,6 +118,7 @@
 
     let pagesSource = null;
     const LOGINS = [];
+    let ALARM_PAGE = '/lage/';
 
     /* Anmeldung "simulieren": Zabbix zeigt seine Dashboards erst nach einem
        Klick auf "Als Gast anmelden" - dabei setzt es ein Sitzungs-Cookie.
@@ -156,14 +177,78 @@
     }
     // Erst Liste holen, dann anzeigen. Ohne await stuenden Punkte und erste
     // Seite noch fuer die Vorgabeliste.
+    /* -----------------------------------------------------------------------
+       ALARMUMSCHALTUNG
+
+       Eine Wand, die stur ihre Runde dreht, zeigt den Ausfall erst in zwei
+       Minuten - und dann 30 Sekunden lang. Deshalb bricht sie die Rotation ab,
+       sobald etwas Kritisches anliegt, und bleibt auf der Lageseite, bis es
+       vorbei ist.
+
+       Zwei Vorkehrungen gegen Zappeln:
+       - ZWEI Messungen in Folge muessen kritisch sein, bevor umgeschaltet wird.
+         Ein einzelner Aussetzer (Neustart, kurzer Paketverlust) reicht nicht.
+       - Nach der Entwarnung bleibt die Seite noch RUHE_MS stehen, bevor die
+         Rotation weiterlaeuft. Sonst springt die Wand bei einem flatternden
+         Dienst im Sekundentakt hin und her - das ist unlesbar und macht den
+         Alarm unglaubwuerdig.
+    ----------------------------------------------------------------------- */
+    const ALARM_POLL_MS = 15000;
+    const RUHE_MS       = 60000;
+    let imAlarm = false, kritFolge = 0, alarmSeit = 0;
+
+    async function pruefeLage() {
+      let krit = 0, grund = '';
+      try {
+        const r = await fetch('/data/probe.json?t=' + Date.now(), { cache: 'no-store' });
+        if (r.ok) {
+          const d = await r.json();
+          krit = (d.summary && d.summary.crit) || 0;
+          const kaputt = (d.targets || []).filter(t => t.state === 'crit');
+          grund = kaputt.slice(0, 4).map(t => t.name).join(' · ');
+        }
+      } catch (e) { /* Messdaten unlesbar ist kein Alarm - siehe unten. */ }
+
+      // Bewusst KEIN Alarm, wenn die Sonde selbst nicht antwortet: Sonst
+      // schaltet ein Fehler in der Ueberwachung die Wand dauerhaft auf Alarm,
+      // und niemand glaubt ihr mehr.
+      kritFolge = krit > 0 ? kritFolge + 1 : 0;
+      // Die Ruhefrist zaehlt ab dem LETZTEN kritischen Messwert, nicht ab
+      // Alarmbeginn. Ein Dienst, der alle 30 Sekunden kurz zurueckkommt,
+      // beendet den Alarm sonst mitten im Flattern.
+      if (krit > 0) alarmSeit = Date.now();
+
+      if (!imAlarm && kritFolge >= 2) {
+        imAlarm = true;
+        document.body.classList.add('alarm');
+        document.getElementById('alarmtext').textContent =
+          `KRITISCH: ${krit} System${krit > 1 ? 'e' : ''} gestört   ${grund}`;
+        clearTimeout(rotTimer);
+        frame.src = ALARM_PAGE;
+        pageEl.textContent = 'Alarm';
+      } else if (imAlarm && krit === 0 && Date.now() - alarmSeit > RUHE_MS) {
+        imAlarm = false;
+        document.body.classList.remove('alarm');
+        show(idx + 1);              // Rotation wieder aufnehmen
+      } else if (imAlarm) {
+        document.getElementById('alarmtext').textContent =
+          krit > 0 ? `KRITISCH: ${krit} System${krit > 1 ? 'e' : ''} gestört   ${grund}`
+                   : 'Entwarnung – Rotation läuft gleich weiter';
+      }
+    }
+
     // Reihenfolge zaehlt: erst Liste holen, dann anmelden, dann anzeigen.
     // Startet die Rotation vorher, zeigt die erste Runde noch den Login.
-    loadPages().then(warmup).then(() => { buildDots(); show(0); });
+    loadPages().then(warmup).then(() => {
+      buildDots(); show(0);
+      pruefeLage(); setInterval(pruefeLage, ALARM_POLL_MS);
+    });
 
     // Weiterschalten. Kein fester Takt mehr, sondern eine Kette von Timern -
     // nur so kann jede Seite ihre eigene Standzeit haben.
     function scheduleNext() {
       clearTimeout(rotTimer);
+      if (imAlarm) return;          // im Alarm wird nicht weitergeschaltet
       const secs = PAGES[idx].secs;
       rotTimer = setTimeout(() => show(idx + 1),
                             secs ? secs * 1000 : ROTATE_MS);

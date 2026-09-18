@@ -16,7 +16,7 @@ FAILED=0
 code(){ curl -sk -m 15 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 
 echo "== Grundgeruest"
-for path in /health /signage/ /lage/ /stoerungen/ /wall/ /config/pages.txt /data/probe.json; do
+for path in /health /signage/ /lage/ /stoerungen/ /wall/ /config/pages.txt /data/probe.json /grafana/api/health; do
   c="$(code "${BASE}${path}")"
   case "${c}" in
     200) echo "  ${G}OK${D}     ${path}" ;;
@@ -27,6 +27,9 @@ for path in /health /signage/ /lage/ /stoerungen/ /wall/ /config/pages.txt /data
                               echo "           docker compose restart nginx" ;;
            /data/probe.json)  echo "         Die Sonde hat noch nichts geschrieben. Pruefen:"
                               echo "           docker compose logs --tail 20 probe" ;;
+           /grafana/*)        echo "         Grafana antwortet nicht. Der erste Start dauert"
+                              echo "         laenger - er laedt die Plugins herunter. Pruefen:"
+                              echo "           docker compose logs --tail 30 grafana" ;;
          esac
          FAILED=1 ;;
     000) echo "  ${R}FEHLER${D} ${path} -> keine Antwort (laeuft nginx?)"; FAILED=1 ;;

@@ -27,6 +27,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 |---|---|---|
 | **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
+| **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
 | **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |
@@ -368,6 +369,131 @@ git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 ./scripts/render-config.py          # trägt deine Werte wieder ein
 docker compose up -d --force-recreate
 ```
+
+## Mission Control: Grafana auf dem Pi
+
+Zabbix ist ein hervorragender **Sammler** — seine Oberfläche ist aber für den
+Schreibtisch gebaut. Grafana liest über das Zabbix-Plugin **dieselben Daten**
+und stellt sie wandtauglich dar: große Zahlen, Verläufe, Trends. Kein zweiter
+Agent, keine zweite Datenhaltung, keine doppelte Pflege.
+
+```
+Zabbix (euer Server) ──┐
+                       ├─→ Grafana (Container auf dem Pi) ─→ /grafana/ ─→ Wand
+Sonde + CVE-Watcher ───┘        24 Panels in 3 Dashboards
+   (probe.json / cve.json, über das Infinity-Plugin)
+```
+
+Der zweite Strang ist der interessante: **eure eigene Messung landet neben den
+Zabbix-Daten im selben Bild.** Zabbix weiß, was *im* Netz passiert; die Sonde
+misst *von der Wand aus* — und der CVE-Watcher kennt die Lage draußen. Erst
+zusammen ergibt das ein Lagebild.
+
+### Dashboards sind Code, nicht Klickarbeit
+
+Ein im Browser zusammengeklicktes Dashboard lebt in Grafanas Datenbank: nicht
+versioniert, nicht reproduzierbar, nach einem Neuaufbau des Pi weg. Hier steht
+das Layout in `scripts/build-dashboards.py` und wird zu
+`grafana/dashboards/*.json` erzeugt — ein Diff zeigt jede Änderung.
+
+```bash
+./scripts/build-dashboards.py     # läuft auch in update.sh automatisch mit
+```
+
+Grafana liest die Dateien beim Start und danach alle 30 s neu. Im Browser
+geändert werden dürfen sie trotzdem — nur überlebt das kein `build-dashboards.py`.
+
+> **Item-Namen anpassen:** Die Panels filtern auf die Item-Namen der offiziellen
+> Zabbix-Templates (`CPU utilization`, `Space utilization`, …). Weichen eure ab,
+> stehen sie als Konstanten `I_CPU`, `I_MEM`, `I_FS` … **oben im Generator** —
+> einmal ändern statt in 24 Panels.
+
+### Die 24 Panels
+
+**`/grafana/d/noc-lagebild/` — Lagebild** (steht am längsten)
+
+| # | Panel | Warum es auf eine Wand gehört |
+|---|---|---|
+| 1 | Hosts erreichbar (%) | Die eine Zahl, die beim Vorbeilaufen zählt |
+| 2 | Aktive Ausfälle | Ab 1 färbt sich die **Fläche** — auffällig aus dem Augenwinkel |
+| 3 | Warnungen | Der Puffer davor |
+| 4 | Neu in 24 h | Zuwachs statt Bestand: passiert gerade etwas? |
+| 5 | Offene Probleme (Tabelle) | Das Herzstück, nach Schweregrad sortiert |
+| 6 | Verfügbarkeit Kernsysteme 24 h | Zeitband: kurze Aussetzer, die eine Momentanzeige nie zeigt |
+| 7 | CPU — höchste Auslastung | Top 8 statt aller Hosts |
+| 8 | Arbeitsspeicher — höchste Auslastung | dito |
+| 9 | Speicherplatz — vollste Volumes | Der häufigste **vermeidbare** Ausfall |
+
+**`/grafana/d/noc-infra/` — Infrastruktur & Rechenzentrum**
+
+| # | Panel | Warum |
+|---|---|---|
+| 10 | WAN-Durchsatz | Der Puls der Firma — Einbruch am Tag, Ausschlag nachts |
+| 11 | Antwortzeit Kernsysteme | Latenz steigt, *bevor* etwas stehenbleibt |
+| 12 | Probleme nach Hostgruppe | Häufung = meist eine gemeinsame Ursache |
+| 13 | Zertifikate — Restlaufzeit | Aus der eigenen Sonde, Wochen vor dem Ausfalltag |
+| 14 | Dienste erreichbar (Sonde) | Zweite Meinung, unabhängig von Zabbix' eigener Gesundheit |
+| 15 | Datastores / Speicher-Pools | Volles Datastore legt **alle** VMs darauf still |
+| 16 | Speicherplatz — Trend 30 Tage | Die Steigung sagt *wann*, nicht nur *dass* |
+
+**`/grafana/d/noc-security/` — Security & Trends**
+
+| # | Panel | Warum |
+|---|---|---|
+| 17 | Externe Schwachstellen (P1) | Aus dem CVE-Watcher, gefiltert auf eure Produkte |
+| 18 | Aktiv ausgenutzt (KEV) | Das schärfste Signal — schlägt jeden CVSS-Wert |
+| 19 | Anmeldefehler (1 h) | Angriff oder kaputter Dienstaccount — beides will man wissen |
+| 20 | Letzter Backup-Lauf | Ein Backup, das niemand prüft, ist keins |
+| 21 | Offene Schwachstellen (Tabelle) | Nach Advisory gruppiert: eine Aufgabe, nicht sieben |
+| 22 | Problem-Aufkommen 7 Tage | Wird es besser oder schlechter? |
+| 23 | Patchstand der Server | Zeigt, *ob* überhaupt gepatcht wird |
+| 24 | Firewall — abgewiesene Verbindungen | Der Grundpegel ist normal; die Abweichung zählt |
+
+### Alarmumschaltung — die Wand reagiert
+
+Eine Wand, die stur ihre Runde dreht, zeigt den Ausfall erst in zwei Minuten —
+und dann 30 Sekunden lang. Deshalb **bricht sie die Rotation ab**, sobald etwas
+Kritisches anliegt: roter pulsierender Rahmen, Alarmband mit den Namen der
+betroffenen Systeme, und sie bleibt auf der Lageseite, bis Entwarnung ist.
+
+Zielseite über `config/pages.txt`:
+```
+@alarm | /lage/
+```
+
+Drei Entscheidungen, damit das im Dauerbetrieb trägt:
+
+- **Zwei Messungen in Folge** müssen kritisch sein. Ein einzelner Aussetzer —
+  Neustart, kurzer Paketverlust — schaltet nicht um.
+- **Die Ruhefrist zählt ab dem letzten kritischen Wert**, nicht ab Alarmbeginn.
+  Ein Dienst, der alle 30 s kurz zurückkommt, beendet den Alarm sonst mitten im
+  Flattern, und die Wand springt im Sekundentakt.
+- **Antwortet die Sonde selbst nicht, gibt es keinen Alarm.** Sonst schaltet ein
+  Fehler in der Überwachung die Wand dauerhaft auf Rot — und dann glaubt ihr
+  niemand mehr.
+
+Das Pulsieren läuft bewusst langsam (2,4 s). Schnelles Blinken nervt nach zehn
+Minuten und wird abgeschaltet.
+
+### Einrichten
+
+```bash
+cp config/pages.txt.example config/pages.txt     # Grafana-Seiten sind drin
+./scripts/update.sh
+./scripts/check-wall.sh
+```
+
+Der **erste Start dauert mehrere Minuten** — Grafana lädt die Plugins herunter.
+`docker compose logs -f grafana` zeigt den Fortschritt.
+
+- Wand: `https://<pi>/grafana/d/noc-lagebild/?kiosk`
+- Eigene Dashboards bauen: `https://<pi>/grafana/` mit `admin` und
+  `GRAFANA_ADMIN_PASSWORD` aus `.env`
+- Die Wand selbst liest **ohne Anmeldung**, aber nur lesend
+
+Fehlt `ZABBIX_API_TOKEN`, wird die Datenquelle **bewusst nicht** geschrieben —
+Grafana startet dann ohne Zabbix statt mit einer Quelle, die bei jedem Panel
+einen Fehler wirft.
 
 ## Betriebslage — die eigentliche Wand
 

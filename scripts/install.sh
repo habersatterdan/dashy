@@ -31,6 +31,7 @@ echo "==> [3b/6] Creating central config (URLs + credentials) and rendering"
 [ -f config/sources.txt ]   || cp config/sources.txt.example config/sources.txt
 [ -f config/cve-feeds.txt ] || cp config/cve-feeds.txt.example config/cve-feeds.txt
 python3 ./scripts/render-config.py || true
+python3 ./scripts/build-dashboards.py || true
 
 echo "==> [4/6] Starting the Docker Compose stack"
 docker compose pull
