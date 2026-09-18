@@ -25,6 +25,11 @@ from urllib.parse import urlsplit
 PROBES_FILE  = Path(os.getenv("PROBES_FILE", "/config/probes.txt"))
 OUT_FILE     = Path(os.getenv("OUT_FILE", "/state/probe.json"))
 HIST_FILE    = Path(os.getenv("HIST_FILE", "/state/probe-history.json"))
+# Tagesbilanz fuer den Wochenrueckblick. Bewusst eine eigene, winzige Datei:
+# sie wird einmal je Durchlauf fortgeschrieben und muss Jahre ueberleben,
+# waehrend probe.json jede Minute komplett neu geschrieben wird.
+DAILY_FILE   = Path(os.getenv("DAILY_FILE", "/state/daily.json"))
+DAILY_KEEP   = int(os.getenv("PROBE_DAILY_KEEP_DAYS", "21"))
 INTERVAL     = int(os.getenv("PROBE_INTERVAL", "60"))
 TIMEOUT      = float(os.getenv("PROBE_TIMEOUT", "8"))
 SLOW_MS      = int(os.getenv("PROBE_SLOW_MS", "2000"))     # darueber: Warnung
@@ -247,6 +252,50 @@ def check(probe):
                 message=f"unbekanntes Ziel-Schema in '{t}'")
 
 
+def lade_tage():
+    try:
+        d = json.loads(DAILY_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def schreibe_tage(results, tage):
+    """Je Tag mitzaehlen, wie viele Pruefungen wie ausgingen - und wie oft ein
+    Dienst NEU ausgefallen ist.
+
+    Warum Ereignisse statt Zustaende: Ein Dienst, der acht Stunden weg ist,
+    ist EIN Vorfall, nicht 480. Nur der Wechsel von "laeuft" nach "gestoert"
+    wird gezaehlt - das ist die Zahl, die in einem Wochenbericht etwas sagt.
+    """
+    heute = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    tag = tage.setdefault(heute, {"checks": 0, "ok": 0, "warn": 0, "crit": 0,
+                                  "vorfaelle": 0, "namen": []})
+    vorher = tage.get("_letzter_zustand", {})
+    for r in results:
+        tag["checks"] += 1
+        if r["state"] in ("ok", "warn", "crit"):
+            tag[r["state"]] += 1
+        key = f"{r['name']}|{r['target']}"
+        if r["state"] == "crit" and vorher.get(key) not in ("crit",):
+            tag["vorfaelle"] += 1
+            if r["name"] not in tag["namen"]:
+                tag["namen"].append(r["name"])
+        vorher[key] = r["state"]
+    tage["_letzter_zustand"] = vorher
+
+    # Alte Tage abschneiden, damit die Datei nicht endlos waechst.
+    datums = sorted(k for k in tage if not k.startswith("_"))
+    for alt_tag in datums[:-DAILY_KEEP]:
+        tage.pop(alt_tag, None)
+    try:
+        tmp = DAILY_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(tage, ensure_ascii=False))
+        tmp.replace(DAILY_FILE)
+    except Exception as e:
+        log(f"Tagesbilanz nicht speicherbar: {e}")
+
+
 def load_history():
     try:
         return json.loads(HIST_FILE.read_text())
@@ -293,8 +342,10 @@ def main():
         log(f"Nichts zu tun. Lege {PROBES_FILE} an "
             f"(Vorlage: config/probes.txt.example).")
     history = load_history()
+    tage = lade_tage()
     while True:
         results = run_once(probes, history)
+        schreibe_tage(results, tage)
         s = summarize(results)
         write_out(results)
         try:

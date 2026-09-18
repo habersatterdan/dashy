@@ -17,31 +17,36 @@
 # kennt Docker nicht. (Genau daran scheitert auch "ping srvdemev00091o" auf dem
 # Pi selbst.) Wer die Suchdomaene lieber zentral setzt: PROBE_DNS_SUFFIX in .env.
 #
+# ALLE BEISPIELZIELE SIND AUSKOMMENTIERT - mit Absicht:
+# "example.local" loest nirgends auf. Waeren die Zeilen aktiv, staende die
+# Wand ab der ersten Minute auf Dauer-Alarm, und niemand koennte unterscheiden,
+# ob wirklich etwas kaputt ist. Trage EURE Systeme ein und entferne das "#".
+#
 # Kopieren:  cp config/probes.txt.example config/probes.txt
 # Die echte Datei ist gitignored und überlebt jedes "git reset --hard".
 # Zeilen mit # sind Kommentare. Reihenfolge = Reihenfolge auf der Wand.
 # =============================================================================
 
 # --- Monitoring ---------------------------------------------------------------
-Zabbix            | Monitoring       | https://zabbix.example.local
-Grafana           | Monitoring       | https://grafana.example.local
+# Zabbix            | Monitoring       | https://zabbix.example.local
+# Grafana           | Monitoring       | https://grafana.example.local
 
 # --- Virtualisierung ----------------------------------------------------------
-vCenter           | Virtualisierung  | https://vcenter.example.local
-ESXi Host 01      | Virtualisierung  | tcp://esx01.example.local:443
+# vCenter           | Virtualisierung  | https://vcenter.example.local
+# ESXi Host 01      | Virtualisierung  | tcp://esx01.example.local:443
 
 # --- Identity / Server --------------------------------------------------------
-DC01 LDAP         | Identity         | tcp://dc01.example.local:389
-DC02 LDAP         | Identity         | tcp://dc02.example.local:389
-Exchange          | Server           | https://mail.example.local/owa
-SQL Server        | Server           | tcp://sql01.example.local:1433
+# DC01 LDAP         | Identity         | tcp://dc01.example.local:389
+# DC02 LDAP         | Identity         | tcp://dc02.example.local:389
+# Exchange          | Server           | https://mail.example.local/owa
+# SQL Server        | Server           | tcp://sql01.example.local:1433
 
 # --- Netzwerk / Security ------------------------------------------------------
-Firewall          | Netzwerk         | https://firewall.example.local
-Interner DNS      | Netzwerk         | dns://intranet.example.local
-Internet-Zugang   | Netzwerk         | https://www.msftconnecttest.com/connecttest.txt
+# Firewall          | Netzwerk         | https://firewall.example.local
+# Interner DNS      | Netzwerk         | dns://intranet.example.local
+# Internet-Zugang   | Netzwerk         | https://www.msftconnecttest.com/connecttest.txt
 
 # --- Betrieb ------------------------------------------------------------------
-Intranet          | Betrieb          | https://intranet.example.local
-ERP               | Betrieb          | https://erp.example.local
-Backup            | Betrieb          | https://backup.example.local
+# Intranet          | Betrieb          | https://intranet.example.local
+# ERP               | Betrieb          | https://erp.example.local
+# Backup            | Betrieb          | https://backup.example.local

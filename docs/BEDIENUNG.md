@@ -107,6 +107,59 @@ docker compose restart nginx
 
 ---
 
+## Wie oft schaltet die Wand um?
+
+**Je Seite einstellbar** — die dritte Spalte in `config/pages.txt` ist die
+Standzeit in Sekunden. Ohne Angabe sind es 30 s.
+
+```
+Betriebslage | /lage/  | 60     ← eine Minute
+Nachrichten  | /news/  | 40
+Störungen    | /stoerungen/     ← 30 s (Vorgabe)
+```
+
+Ein voller Umlauf dauert so lang wie die Summe aller Zeilen. Acht Seiten à
+45 s sind sechs Minuten — wer im Flur vorbeigeht, sieht also nicht alles.
+Deshalb: **das Wichtigste nach oben und länger.**
+
+## Wo trage ich die IP-Adressen ein?
+
+In `config/probes.txt` — das ist die Liste dessen, was überwacht wird
+(nicht zu verwechseln mit `pages.txt`, das ist die Anzeige).
+
+```bash
+nano config/probes.txt
+docker compose restart probe
+```
+
+```
+# Name          | Gruppe    | Ziel
+Firewall        | Netzwerk  | https://10.30.10.1
+DC01 LDAP       | Identity  | tcp://10.30.191.20:389
+Interner DNS    | Netzwerk  | dns://intranet.firma.local
+Internet        | Netzwerk  | https://www.msftconnecttest.com/connecttest.txt
+```
+
+IP-Adressen funktionieren **direkt** und sind hier sogar die sichere Wahl —
+bei Namen muss der volle Name (FQDN) stehen, Kurznamen lösen im Container
+nicht auf.
+
+| Ziel | Was geprüft wird |
+|---|---|
+| `https://10.30.10.1` | Erreichbarkeit, Antwortzeit, **Zertifikatsrestlaufzeit** |
+| `tcp://10.30.191.20:389` | Port offen, Verbindungszeit |
+| `dns://name.firma.local` | Löst der Name auf |
+
+Sofort prüfen, ob die Ziele stimmen:
+
+```bash
+docker compose exec probe python /app/probe.py --once
+```
+
+> **Alle Beispielzeilen sind auskommentiert** — mit Absicht. `example.local`
+> löst nirgends auf; wären die Zeilen aktiv, stünde die Wand ab der ersten
+> Minute auf Dauer-Alarm.
+
 ## Aufgabe 5 — Reihenfolge und Standzeiten ändern
 
 Alles steht in **einer** Datei:
@@ -160,7 +213,11 @@ Weitere Prüfungen:
 
 - **Alle 30–60 s weiterschalten** — je Seite einstellbar
 - **Bei einem kritischen Ausfall die Rotation abbrechen**, rot pulsieren und
-  auf der Lageseite bleiben, bis Entwarnung ist
+  auf der Lageseite bleiben, bis Entwarnung ist — höchstens aber 15 Minuten,
+  danach läuft die Rotation weiter und nur die Warnung bleibt stehen
+- **Keinen Alarm auslösen, wenn *alles* kritisch ist.** Dann ist fast nie alles
+  kaputt, sondern die Konfiguration stimmt nicht — die Wand sagt das und
+  rotiert weiter, statt sich festzufahren
 - **Alle 5 Minuten neu laden**, damit nichts einfriert
 - **Sich alle 10 Minuten um wenige Pixel verschieben** (Einbrennschutz)
 - **Alle 30 Minuten** nach neuen Schwachstellen suchen, die eure Produkte
@@ -177,6 +234,7 @@ Nichts davon muss jemand bedienen.
 | Die Wand (Rotation) | `https://<pi>/signage/` |
 | Betriebslage | `https://<pi>/lage/` |
 | Sicherheitsnachrichten | `https://<pi>/news/` |
+| Wochenrückblick | `https://<pi>/woche/` |
 | Anbieterstatus | `https://<pi>/stoerungen/` |
 | Alert-Wand | `https://<pi>/wall/` |
 | Grafana | `https://<pi>/grafana/` |

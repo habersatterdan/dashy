@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wochenrückblick</title>
+<style>
+  :root{
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8a8a80;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+    --rule:#2e2e2c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--plane); color:var(--ink); overflow:hidden; cursor:none;
+       font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+       font-variant-numeric:tabular-nums; display:flex; flex-direction:column;
+       transition:transform .6s ease}
+
+  header{display:flex; align-items:baseline; gap:20px; padding:20px 40px 14px;
+         border-bottom:1px solid var(--rule)}
+  h1{font-size:26px; font-weight:700; letter-spacing:.16em; text-transform:uppercase}
+  #zeitraum{color:var(--ink-3); font-size:15px}
+  #stand{margin-left:auto; color:var(--ink-3); font-size:13px}
+
+  /* Die drei Zahlen, um die es geht. Bewusst riesig: Dieses Bild soll aus
+     zehn Metern funktionieren und in einem Screenshot fuer die Leitung. */
+  #kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;
+        padding:26px 40px 10px}
+  .kpi{background:var(--surface); border:1px solid var(--rule); border-radius:14px;
+       padding:22px 26px; display:flex; flex-direction:column; gap:4px}
+  .kpi .n{font-size:84px; font-weight:800; line-height:1; letter-spacing:-.02em}
+  .kpi .l{font-size:14px; letter-spacing:.14em; text-transform:uppercase;
+          color:var(--ink-3)}
+  .kpi .s{font-size:14px; color:var(--ink-2); margin-top:6px}
+  .kpi.gut .n{color:var(--good)} .kpi.warn .n{color:var(--warning)}
+  .kpi.schlecht .n{color:var(--critical)}
+
+  main{flex:1; min-height:0; display:grid; grid-template-columns:1.25fr 1fr;
+       gap:20px; padding:14px 40px 26px}
+  .karte{background:var(--surface); border:1px solid var(--rule); border-radius:14px;
+         padding:18px 22px; display:flex; flex-direction:column; gap:12px;
+         min-height:0; overflow:hidden}
+  .karte h2{font-size:13px; letter-spacing:.14em; text-transform:uppercase;
+            color:var(--ink-3)}
+
+  /* Tagesbalken: sieben Tage nebeneinander. Die Form zeigt sofort, ob eine
+     Woche ruhig war oder einen schlechten Tag hatte. */
+  #tage{flex:1; display:flex; align-items:flex-end; gap:14px; min-height:0}
+  .tag{flex:1; display:flex; flex-direction:column; align-items:center; gap:7px;
+       height:100%; justify-content:flex-end}
+  .tag .bar{width:100%; border-radius:6px 6px 0 0; background:var(--good);
+            min-height:3px; position:relative; transition:height .4s ease}
+  .tag .bar.warn{background:var(--warning)}
+  .tag .bar.schlecht{background:var(--critical)}
+  .tag .wert{font-size:13px; color:var(--ink-2)}
+  .tag .name{font-size:13px; color:var(--ink-3); letter-spacing:.06em}
+  .tag.heute .name{color:var(--ink); font-weight:700}
+
+  .zeile{display:flex; align-items:baseline; gap:10px; padding:7px 0;
+         border-bottom:1px solid var(--rule); font-size:16px}
+  .zeile:last-child{border-bottom:0}
+  .zeile .z{font-weight:700; min-width:34px}
+  .zeile .t{color:var(--ink-2); overflow:hidden; text-overflow:ellipsis;
+            white-space:nowrap}
+  .zeile .r{margin-left:auto; color:var(--ink-3); font-size:13px}
+  .p1{color:var(--critical)} .p2{color:var(--warning)}
+  .leer{color:var(--ink-3); font-size:15px; line-height:1.6}
+
+  footer{border-top:1px solid var(--rule); padding:9px 40px; display:flex;
+         gap:20px; color:var(--ink-3); font-size:12px}
+  footer .r{margin-left:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Wochenrückblick</h1>
+  <span id="zeitraum">–</span>
+  <span id="stand"></span>
+</header>
+
+<div id="kpis">
+  <div class="kpi" id="k-verf"><span class="n">–</span>
+    <span class="l">Verfügbarkeit</span><span class="s"></span></div>
+  <div class="kpi" id="k-vorf"><span class="n">–</span>
+    <span class="l">Störungen</span><span class="s"></span></div>
+  <div class="kpi" id="k-cve"><span class="n">–</span>
+    <span class="l">Relevante Schwachstellen</span><span class="s"></span></div>
+</div>
+
+<main>
+  <section class="karte">
+    <h2>Verfügbarkeit je Tag</h2>
+    <div id="tage"></div>
+  </section>
+  <section class="karte">
+    <h2>Was diese Woche los war</h2>
+    <div id="liste" class="leer">Lade …</div>
+  </section>
+</main>
+
+<footer><span id="quelle"></span><span class="r" id="hinweis"></span></footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Der Wochenrueckblick ist bewusst ein STANDBILD: keine Zahl, die sich vor den
+   Augen aendert, sondern eine Bilanz. Genau das bleibt haengen und laesst sich
+   abfotografieren - eine Live-Zahl sagt "gerade laeuft alles", eine Wochenzahl
+   sagt "wir haben das im Griff".
+
+   Datenquellen sind die beiden Dateien, die das System ohnehin schreibt:
+     /data/daily.json  - Tagesbilanz der Sonde (Pruefungen, Vorfaelle)
+     /data/cve.json    - letzter Stand des CVE-Watchers
+--------------------------------------------------------------------------- */
+const REFRESH_MS = 600000;    // 10 min - eine Wochenbilanz eilt nicht
+const TAGE = 7;
+const WOCHENTAG = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function setzeKpi(el, wert, klasse, unten){
+  el.className = 'kpi ' + klasse;
+  el.querySelector('.n').textContent = wert;
+  el.querySelector('.s').textContent = unten || '';
+}
+
+function letzteTage(daily){
+  const out = [];
+  for (let i = TAGE - 1; i >= 0; i--){
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const t = daily[key] || null;
+    out.push({ key, datum: d, tag: WOCHENTAG[d.getDay()], t });
+  }
+  return out;
+}
+
+function renderTage(tage){
+  const html = tage.map(({tag, t, datum}, i) => {
+    const heute = i === tage.length - 1;
+    // Ohne Messwerte KEIN Balken auf 100 %: eine fehlende Messung ist nicht
+    // dasselbe wie ein perfekter Tag. Das wuerde die Bilanz schoenrechnen.
+    if (!t || !t.checks)
+      return `<div class="tag${heute ? ' heute' : ''}">
+          <div class="wert" style="color:#8a8a80">–</div>
+          <div class="bar" style="height:3px;background:#2e2e2c"></div>
+          <div class="name">${tag}</div></div>`;
+    const v = 100 * t.ok / t.checks;
+    const kl = v >= 99.5 ? '' : (v >= 97 ? 'warn' : 'schlecht');
+    // Ma&szlig;stab 90-100 %: zwischen 99,9 und 97 laege sonst kein sichtbarer
+    // Unterschied, und genau der ist die Aussage.
+    const hoehe = Math.max(4, Math.min(100, (v - 90) * 10));
+    return `<div class="tag${heute ? ' heute' : ''}">
+        <div class="wert">${v.toFixed(v >= 99.95 ? 0 : 1)} %</div>
+        <div class="bar ${kl}" style="height:${hoehe}%"></div>
+        <div class="name">${tag}</div></div>`;
+  }).join('');
+  $('tage').innerHTML = html;
+}
+
+async function hole(url){
+  const r = await fetch(url + '?t=' + Date.now(), {cache:'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function refresh(){
+  let daily = {}, cve = null, fehler = [];
+  try { daily = await hole('/data/daily.json'); }
+  catch(e){ fehler.push('Tagesbilanz'); }
+  try { cve = await hole('/data/cve.json'); }
+  catch(e){ /* kein Fund seit dem letzten Neustart ist normal */ }
+
+  const tage = letzteTage(daily);
+  renderTage(tage);
+
+  const mit = tage.filter(x => x.t && x.t.checks);
+  const checks = mit.reduce((s,x) => s + x.t.checks, 0);
+  const ok     = mit.reduce((s,x) => s + x.t.ok, 0);
+  const vorf   = mit.reduce((s,x) => s + (x.t.vorfaelle || 0), 0);
+
+  if (checks){
+    const v = 100 * ok / checks;
+    setzeKpi($('k-verf'), v.toFixed(v >= 99.95 ? 1 : 2).replace('.', ',') + ' %',
+             v >= 99.5 ? 'gut' : (v >= 97 ? 'warn' : 'schlecht'),
+             `${checks.toLocaleString('de-DE')} Prüfungen an ${mit.length} Tagen`);
+  } else {
+    setzeKpi($('k-verf'), '–', '', 'noch keine Messwerte');
+  }
+
+  setzeKpi($('k-vorf'), String(vorf), vorf === 0 ? 'gut' : (vorf <= 3 ? 'warn' : 'schlecht'),
+           vorf === 1 ? 'einmal ist etwas ausgefallen'
+                      : (vorf === 0 ? 'kein Dienst ist ausgefallen'
+                                    : 'Ausfälle, jeweils einmal gezählt'));
+
+  const p1 = cve?.summary?.p1 || 0, p2 = cve?.summary?.p2 || 0;
+  const kev = cve?.summary?.kev_count || 0;
+  setzeKpi($('k-cve'), String(p1 + p2), (p1 ? 'schlecht' : (p2 ? 'warn' : 'gut')),
+           cve ? `${p1}× P1, ${p2}× P2` + (kev ? ` · ${kev}× aktiv ausgenutzt` : '')
+               : 'keine Meldung seit dem letzten Lauf');
+
+  // Liste: Tage mit Vorfaellen, neueste zuerst - plus die Schwachstellen.
+  const zeilen = [];
+  [...tage].reverse().forEach(({tag, datum, t}) => {
+    if (!t || !t.vorfaelle) return;
+    zeilen.push(`<div class="zeile"><span class="z p2">${t.vorfaelle}×</span>
+        <span class="t">${esc((t.namen || []).join(', ') || 'Dienste gestört')}</span>
+        <span class="r">${tag}, ${datum.toLocaleDateString('de-DE',
+          {day:'2-digit',month:'2-digit'})}</span></div>`);
+  });
+  (cve?.findings || []).slice(0, 5).forEach(f => {
+    zeilen.push(`<div class="zeile">
+        <span class="z ${f.priority === 'P1' ? 'p1' : 'p2'}">${esc(f.priority)}</span>
+        <span class="t">${esc(f.title)}</span>
+        <span class="r">${esc((f.matched_products || []).join(', '))}</span></div>`);
+  });
+  $('liste').className = zeilen.length ? '' : 'leer';
+  $('liste').innerHTML = zeilen.join('') ||
+    'Keine Störungen und keine relevanten Schwachstellen in diesem Zeitraum.';
+
+  const von = tage[0].datum, bis = tage[tage.length-1].datum;
+  const f = d => d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+  $('zeitraum').textContent = `${f(von)} – ${f(bis)}`;
+  $('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE',
+    {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  $('quelle').textContent = fehler.length
+    ? '⚠ ' + fehler.join(', ') + ' nicht lesbar'
+    : 'Quelle: eigene Messung und CVE-Watcher';
+  $('hinweis').textContent =
+    'Verfügbarkeit = erfolgreiche Prüfungen aller Dienste · Störung = Wechsel von „läuft" nach „gestört"';
+}
+
+/* Burn-in: ein Standbild steht lange - hier ist die Verschiebung wichtiger
+   als auf den anderen Seiten. */
+let shift = 0;
+setInterval(() => {
+  shift = (shift + 1) % 4;
+  const d = [0,3,0,-3][shift];
+  document.body.style.transform = `translate(${d}px,${d}px)`;
+}, 300000);
+
+refresh(); setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>

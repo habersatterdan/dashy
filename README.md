@@ -386,6 +386,29 @@ git reset --hard origin/<branch>    # config/*.env bleibt unangetastet
 docker compose up -d --force-recreate
 ```
 
+## Wochenrückblick: `/woche/`
+
+Ein **Standbild**, kein Live-Dashboard: drei riesige Zahlen für die letzten
+sieben Tage — Verfügbarkeit, Störungen, relevante Schwachstellen — dazu ein
+Tagesbalken je Wochentag und eine Liste, was passiert ist.
+
+Das ist die Seite, die man abfotografiert. Eine Live-Zahl sagt *„gerade läuft
+alles"*; eine Wochenzahl sagt *„wir haben das im Griff"* — und genau das will
+eine Leitung sehen.
+
+Drei Entscheidungen, die die Bilanz ehrlich halten:
+
+- **Eine Störung ist ein Ereignis, kein Zustand.** Ein Dienst, der acht Stunden
+  weg ist, zählt **einmal** — nicht 480-mal. Gezählt wird nur der Wechsel von
+  „läuft" nach „gestört".
+- **Ein Tag ohne Messwerte bekommt keinen 100-%-Balken.** Eine fehlende Messung
+  ist nicht dasselbe wie ein perfekter Tag; das würde die Bilanz schönrechnen.
+- **Der Maßstab der Balken beginnt bei 90 %.** Zwischen 99,9 % und 97 % läge
+  sonst kein sichtbarer Unterschied — und genau der ist die Aussage.
+
+Die Daten schreibt die Sonde selbst nach `state/daily.json` (21 Tage), der
+CVE-Watcher steuert `state/cve.json` bei. Keine zusätzliche Datenbank.
+
 ## Sicherheitsnachrichten: `/news/`
 
 Mehrere Quellen **nebeneinander** statt hintereinander — eine Spalte je Quelle,

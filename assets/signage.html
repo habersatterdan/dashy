@@ -193,21 +193,48 @@
          Dienst im Sekundentakt hin und her - das ist unlesbar und macht den
          Alarm unglaubwuerdig.
     ----------------------------------------------------------------------- */
+    const $alarmtext = () => document.getElementById('alarmtext');
     const ALARM_POLL_MS = 15000;
     const RUHE_MS       = 60000;
-    let imAlarm = false, kritFolge = 0, alarmSeit = 0;
+    // Obergrenze: Nach dieser Zeit laeuft die Rotation weiter, auch wenn der
+    // Ausfall anhaelt. Eine Wand, die stundenlang dieselbe Seite zeigt, wird
+    // zur Tapete - der rote Rahmen und das Alarmband bleiben natuerlich.
+    const MAX_ALARM_MS  = 15 * 60 * 1000;
+    let imAlarm = false, kritFolge = 0, alarmSeit = 0, alarmBeginn = 0;
+    // Nach der Obergrenze gesetzt: verhindert, dass derselbe, noch immer
+    // anliegende Ausfall sofort wieder umschaltet. Faellt erst, wenn es
+    // einmal entwarnt war - ein NEUER Ausfall alarmiert also wieder.
+    let gedeckelt = false;
 
     async function pruefeLage() {
-      let krit = 0, grund = '';
+      let krit = 0, ok = 0, gesamt = 0, grund = '';
       try {
         const r = await fetch('/data/probe.json?t=' + Date.now(), { cache: 'no-store' });
         if (r.ok) {
           const d = await r.json();
-          krit = (d.summary && d.summary.crit) || 0;
+          const s = d.summary || {};
+          krit = s.crit || 0; ok = s.ok || 0; gesamt = s.total || 0;
           const kaputt = (d.targets || []).filter(t => t.state === 'crit');
           grund = kaputt.slice(0, 4).map(t => t.name).join(' · ');
         }
       } catch (e) { /* Messdaten unlesbar ist kein Alarm - siehe unten. */ }
+
+      // Ist ALLES kritisch, ist fast nie alles kaputt - viel wahrscheinlicher
+      // stimmt die Konfiguration nicht (Platzhalter-Adressen, DNS im Container,
+      // Netz weg). Dann waere Dauer-Alarm die falsche Aussage: die Wand zeigt
+      // einen Hinweis und rotiert weiter, statt sich auf einer Seite
+      // festzufahren. Genau dieser Fall trat mit den Beispielzielen auf.
+      const alleKaputt = gesamt > 1 && ok === 0 && krit === gesamt;
+      if (alleKaputt) {
+        document.body.classList.remove('alarm');
+        imAlarm = false;
+        $alarmtext().textContent =
+          `Alle ${gesamt} Ziele nicht erreichbar – vermutlich Konfiguration ` +
+          `prüfen (config/probes.txt)`;
+        $alarmtext().style.display = 'block';
+        return;
+      }
+      $alarmtext().style.display = '';
 
       // Bewusst KEIN Alarm, wenn die Sonde selbst nicht antwortet: Sonst
       // schaltet ein Fehler in der Ueberwachung die Wand dauerhaft auf Alarm,
@@ -218,20 +245,26 @@
       // beendet den Alarm sonst mitten im Flattern.
       if (krit > 0) alarmSeit = Date.now();
 
-      if (!imAlarm && kritFolge >= 2) {
-        imAlarm = true;
+      if (krit === 0) gedeckelt = false;
+
+      if (!imAlarm && !gedeckelt && kritFolge >= 2) {
+        imAlarm = true; alarmBeginn = Date.now();
         document.body.classList.add('alarm');
-        document.getElementById('alarmtext').textContent =
+        $alarmtext().textContent =
           `KRITISCH: ${krit} System${krit > 1 ? 'e' : ''} gestört   ${grund}`;
         clearTimeout(rotTimer);
         frame.src = ALARM_PAGE;
         pageEl.textContent = 'Alarm';
+      } else if (imAlarm && Date.now() - alarmBeginn > MAX_ALARM_MS) {
+        // Anhaltender Ausfall: Rotation wieder freigeben, Warnung bleibt.
+        imAlarm = false; gedeckelt = true;
+        show(idx + 1);
       } else if (imAlarm && krit === 0 && Date.now() - alarmSeit > RUHE_MS) {
         imAlarm = false;
         document.body.classList.remove('alarm');
         show(idx + 1);              // Rotation wieder aufnehmen
       } else if (imAlarm) {
-        document.getElementById('alarmtext').textContent =
+        $alarmtext().textContent =
           krit > 0 ? `KRITISCH: ${krit} System${krit > 1 ? 'e' : ''} gestört   ${grund}`
                    : 'Entwarnung – Rotation läuft gleich weiter';
       }
