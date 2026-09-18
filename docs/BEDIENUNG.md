@@ -205,6 +205,7 @@ Weitere Prüfungen:
 ```bash
 ./scripts/check-zabbix.sh     # Zabbix-Anbindung Schicht für Schicht
 ./scripts/check-feeds.sh      # alle Nachrichtenquellen
+./scripts/check-grafana.sh    # Grafana auf diesem Pi
 ```
 
 ---

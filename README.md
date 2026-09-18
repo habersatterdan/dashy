@@ -545,8 +545,20 @@ cp config/pages.txt.example config/pages.txt     # Grafana-Seiten sind drin
 ./scripts/check-wall.sh
 ```
 
-Der **erste Start dauert mehrere Minuten** — Grafana lädt die Plugins herunter.
-`docker compose logs -f grafana` zeigt den Fortschritt.
+Der **erste Start dauert mehrere Minuten** — Grafana lädt dabei die beiden
+Plugins von grafana.com herunter. Genau in dieser Zeit sieht es aus, als sei
+etwas kaputt. Wo es gerade steht:
+
+```bash
+./scripts/check-grafana.sh
+```
+
+Prüft Container, Erreichbarkeit, beide Plugins, die Zabbix-Datenquelle und die
+Dashboards — einzeln, mit dem jeweils nächsten Schritt.
+
+> **Verlangt euer Netz einen Proxy für ausgehende Verbindungen?** Dann
+> `HTTP_PROXY=http://proxy.firma.local:8080` in `.env` setzen. Grafana braucht
+> ihn **einmal** beim ersten Start; danach läuft alles im eigenen Netz.
 
 - Wand: `https://<pi>/grafana/d/noc-lagebild/?kiosk`
 - Eigene Dashboards bauen: `https://<pi>/grafana/` mit `admin` und

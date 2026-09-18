@@ -134,6 +134,13 @@ services:
       - GF_USERS_DEFAULT_THEME=dark
       # Firmen-CA, sonst scheitert der Abruf hinter dem SSL-Inspection-Proxy.
       - SSL_CERT_FILE=/etc/ssl/host-ca-bundle.crt
+      # Beim ERSTEN Start laedt Grafana die Plugins von grafana.com. Verlangt
+      # euer Netz dafuer einen Proxy, hier eintragen (in .env setzen):
+      #   HTTP_PROXY=http://proxy.firma.local:8080
+      # Leer lassen ist harmlos - dann geht Grafana direkt ins Netz.
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1,nginx,dashy,probe}
       - TZ=${TZ:-Europe/Berlin}
     extra_hosts:
       - "${EXTRA_HOST_1:-nicht-gesetzt.invalid:0.0.0.0}"
