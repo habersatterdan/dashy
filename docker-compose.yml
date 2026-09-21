@@ -272,6 +272,15 @@ services:
     extra_hosts:
       - "${EXTRA_HOST_1:-nicht-gesetzt.invalid:0.0.0.0}"
       - "${EXTRA_HOST_2:-nicht-gesetzt2.invalid:0.0.0.0}"
+    healthcheck:
+      # Gesund = die Messdatei ist juenger als drei Intervalle. Ein Prozess,
+      # der noch laeuft, aber nichts mehr schreibt, faellt sonst nicht auf -
+      # und die Wand zeigt stundenalte Werte, ohne es zu sagen.
+      test: ["CMD-SHELL", "python -c \"import os,time,sys; f='/state/probe.json'; sys.exit(0 if os.path.exists(f) and time.time()-os.path.getmtime(f) < 3*int(os.getenv('PROBE_INTERVAL','60')) else 1)\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     networks:
       - signage
     logging:

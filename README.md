@@ -18,6 +18,20 @@ Raspberry Pi 5
 
 ---
 
+## Täglicher Blick: ein Befehl
+
+```bash
+./scripts/status.sh
+```
+
+Prüft Container, alle Wandseiten, die Datenquellen, **die Sicherheit** und das
+System — mit Ampel am Ende und dem jeweils nächsten Schritt bei jedem Befund.
+Das ist auch das, was man anhängt, wenn man um Hilfe bittet.
+
+> **Sicherheit: [`docs/SICHERHEIT.md`](docs/SICHERHEIT.md)** — was geschützt ist,
+> was ihr entscheiden müsst (vor allem: der Zabbix-Token braucht eine
+> **Nur-Lese-Rolle**), und was das System bewusst *nicht* leistet.
+
 ## Für Kollegen: ein Befehl für alles
 
 ```bash
@@ -44,6 +58,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
 | **Spalten auf `/news/`** festlegen | `config/news.txt` | `docker compose restart nginx` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
+| **Prüfen, ob alles läuft und sicher steht** | — | `./scripts/status.sh` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
 | **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |

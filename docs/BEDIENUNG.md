@@ -186,7 +186,8 @@ weglassen = 30 s.
 **Immer zuerst:**
 
 ```bash
-./scripts/check-wall.sh
+./scripts/status.sh      # Gesamtbild: Container, Seiten, Daten, Sicherheit
+./scripts/check-wall.sh  # jede einzelne Seite aus config/pages.txt
 ```
 
 Es ruft **jede** Seite einzeln auf und sagt, welche fehlt. In der Rotation

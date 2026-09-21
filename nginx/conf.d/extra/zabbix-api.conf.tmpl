@@ -30,6 +30,26 @@
 location = /api/zabbix {
     limit_except POST { deny all; }
 
+    # ----------------------------------------------------------------------
+    # SICHERHEIT: nur lesende Methoden durchlassen.
+    #
+    # Ohne diese Pruefung haengt Nginx den API-Token an JEDE Anfrage, die
+    # jemand hierher schickt. Wer den Pi im Netz erreicht, koennte damit
+    # host.delete, user.create oder script.execute aufrufen - mit den Rechten
+    # des Tokens. Der Token sollte durch den serverseitigen Proxy geschuetzt
+    # werden; ohne Filter wird der Proxy stattdessen zum offenen Tor.
+    #
+    # Der Koerper muss in den Puffer passen, sonst ist $request_body leer -
+    # und ein leerer Koerper faellt durch das Muster und wird abgewiesen.
+    # Eine Abfrage der Wand ist wenige hundert Byte gross.
+    client_max_body_size 8k;
+    client_body_buffer_size 8k;
+    if ($request_body !~ "\"method\"[ ]*:[ ]*\"(problem\.get|trigger\.get|host\.get|hostgroup\.get|hostinterface\.get|event\.get|item\.get|service\.get|maintenance\.get|apiinfo\.version)\"") {
+        return 403 "{\"error\":\"nur lesende Zabbix-Methoden sind erlaubt\"}";
+    }
+    # Missbrauch bremsen: die Wand fragt alle 20 s, mehr braucht niemand.
+    limit_req zone=zbxapi burst=10 nodelay;
+
     # ZABBIX_BASE ist die bereinigte Basis (ohne Query, ohne .php-Datei) -
     # eine aus der Adresszeile kopierte Dashboard-URL wuerde den Aufruf
     # sonst auf der HTML-Seite landen lassen und Zabbix antwortet mit
