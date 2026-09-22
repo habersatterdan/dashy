@@ -27,7 +27,9 @@ Was möchtest du zur Wand hinzufügen?
   2) Interne Weboberfläche (Grafana, PRTG, CheckMK, Wiki ...)
   3) Nachrichtenquelle (RSS/Atom)
   4) Grafana-Dashboard von diesem Pi
-  5) Nur anzeigen, was schon drin ist
+  5) Eigene Wandseite für eine Zabbix-Hostgruppe (empfohlen)
+  6) Beliebige Anwendung mit REST-Schnittstelle (LOGINventory, Jira ...)
+  7) Nur anzeigen, was schon drin ist
 ```
 
 ---
@@ -126,6 +128,87 @@ Kandidaten durchprobieren:
 ```bash
 ./scripts/check-feeds.sh --kandidaten
 ```
+
+---
+
+## Aufgabe 3b — Eine eigene Anwendung anbinden *(LOGINventory, Jira, alles mit REST)*
+
+```bash
+./scripts/add.sh anwendung
+```
+
+Das ist der Weg für **alles, wofür es keinen eigenen Punkt im Menü gibt**.
+Voraussetzung ist nur eine Adresse, die JSON zurückgibt — das können
+LOGINventory, Jira, ein Ticketsystem, eine Telefonanlage oder die
+Gebäudeleittechnik. Es wird **kein Code geschrieben**; die Anbindung steht in
+`config/connect.ini`, und daraus wird eine Kachel auf `/kennzahlen/`.
+
+Das Skript fragt der Reihe nach:
+
+| Frage | Beispiel | Wofür |
+|---|---|---|
+| Kurzname | `jira-offen` | Abschnittsname in der ini |
+| Adresse | `https://jira.firma.de/rest/api/2/search?jql=resolution=Unresolved&maxResults=0` | die JSON-Quelle |
+| Anmeldung | Token / Benutzer+Passwort / eigene Kopfzeile / keine | siehe unten |
+| Zahl oder Liste | eine Zahl | Kennzahl oder die neuesten Einträge |
+| Pfad zum Wert | `total` | wo die Zahl in der Antwort steht |
+| Gruppe, Überschrift, Einheit | `Tickets`, `Offene Tickets` | Anzeige |
+| Warnung / Kritisch ab | `40` / `60` | Farbe und Symbol der Kachel |
+
+### Der Pfad zum Wert — die einzige Stelle, an der man nachsehen muss
+
+Öffne die Adresse einmal im Browser und sieh in die Antwort. Der Pfad ist
+Punktschreibweise:
+
+| Antwort | Pfad | Ergebnis |
+|---|---|---|
+| `{"total": 47}` | `total` | 47 |
+| `{"@odata.count": 1284}` | `@odata.count` | 1284 *(LOGINventory/OData)* |
+| `{"issues":[…, …, …]}` | `len:issues` | 3 |
+| `{"issues":[{"fields":{"summary":"…"}}]}` | `issues[0].fields.summary` | der Text |
+
+**Stimmt der Pfad nicht, bricht das Skript sofort ab** und zeigt die Schlüssel,
+die wirklich in der Antwort stehen:
+
+```
+FEHLER  jira-offen: Pfad 'gibts.nicht' kommt in der Antwort nicht vor.
+        Vorhanden ist: total, issues
+```
+
+Ein falscher Pfad landet also nie stillschweigend als leere Kachel auf der Wand.
+
+### Zugangsdaten
+
+In `config/connect.ini` steht **nie ein Passwort**, sondern nur der *Name* einer
+Variablen aus `config/secrets.env`:
+
+```ini
+[jira-offen]
+auth = bearer:JIRA_TOKEN      ← der Name, nicht der Token
+```
+
+Das Skript fragt den Wert ab (die Eingabe bleibt unsichtbar) und legt ihn
+selbst in `config/secrets.env` ab. So kann die `connect.ini` bedenkenlos
+herumgereicht oder in ein Ticket kopiert werden.
+
+Vier Formen sind möglich:
+
+| Form | Für |
+|---|---|
+| `bearer:JIRA_TOKEN` | Jira Cloud, die meisten REST-APIs |
+| `basic:LOGINV_USER:LOGINV_PASS` | LOGINventory, ältere Systeme |
+| `header:X-Api-Key:LOGINV_KEY` | eigener Kopfzeilenname |
+| `query:apikey:LOGINV_KEY` | Schlüssel als Parameter in der Adresse |
+
+### Später etwas ändern
+
+```bash
+nano config/connect.ini
+docker compose exec connect python /app/connect.py --test jira-offen
+docker compose restart connect
+```
+
+`--test` ohne Namen prüft **alle** Anbindungen auf einmal.
 
 ---
 
@@ -269,11 +352,11 @@ Nichts davon muss jemand bedienen.
 | Betriebslage | `https://<pi>/lage/` |
 | Sicherheitsnachrichten | `https://<pi>/news/` |
 | Wochenrückblick | `https://<pi>/woche/` |
+| Kennzahlen (angebundene Anwendungen) | `https://<pi>/kennzahlen/` |
 | Grafana | `https://<pi>/grafana/` |
 | Eigene Gruppenseite | `https://<pi>/grafana/d/noc-<name>/?kiosk` |
 | Anbieterstatus | `https://<pi>/stoerungen/` |
 | Alert-Wand | `https://<pi>/wall/` |
-| Grafana | `https://<pi>/grafana/` |
 
 ---
 

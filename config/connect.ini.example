@@ -1,0 +1,103 @@
+# =============================================================================
+# ANWENDUNGEN AUF DIE WAND - ohne eine Zeile Code
+# -----------------------------------------------------------------------------
+# Ein Abschnitt je Kachel. Der Dienst "connect" ruft die URL ab, zieht einen
+# Wert heraus, legt Schwellen an und zeigt das Ergebnis auf /kennzahlen/.
+#
+# ZUGANGSDATEN STEHEN HIER NIE. In "auth" steht nur der NAME einer Variablen
+# aus config/secrets.env - so kann diese Datei bedenkenlos herumgereicht
+# werden, und ein Blick hinein verraet kein Geheimnis.
+#
+# Kopieren:  cp config/connect.ini.example config/connect.ini
+# Pruefen:   docker compose exec connect python /app/connect.py --test jira
+# Bequemer:  ./scripts/add.sh anwendung
+#
+# -----------------------------------------------------------------------------
+# FELDER
+#   titel     Beschriftung auf der Wand
+#   gruppe    Ueberschrift, unter der die Kachel einsortiert wird
+#   url       vollstaendige Adresse der REST-Schnittstelle (liefert JSON)
+#   auth      bearer:VARIABLE | basic:USER_VAR:PASS_VAR
+#             header:X-Api-Key:VARIABLE | query:apikey:VARIABLE
+#   wert      Pfad zum Wert:  total   oder  data.count   oder  issues[0].id
+#             "len:issues" zaehlt die Eintraege einer Liste
+#   liste     statt "wert": Pfad zu einer Liste -> mehrzeilige Kachel
+#   eintrag_titel / eintrag_text   Pfade INNERHALB eines Listeneintrags
+#   einheit   Text hinter der Zahl ("Tickets", "Geräte", "%")
+#   warn/krit Schwellen. Steht krit UNTER warn, wird umgekehrt gezaehlt -
+#             fuer Werte, die schlecht sind wenn sie KLEIN werden.
+#   link      Adresse, die im Titel hinterlegt wird (optional)
+#   aktiv     false schaltet die Kachel ab, ohne sie zu loeschen
+# =============================================================================
+
+# --- Jira: offene Tickets ----------------------------------------------------
+# maxResults=0 holt NUR die Anzahl - kein unnoetiger Datenverkehr, und die
+# Wand braucht nicht mehr. Token: Jira -> Profil -> Persoenliche Zugriffstoken.
+# [jira]
+# titel   = Offene Tickets
+# gruppe  = Servicedesk
+# url     = https://jira.firma.local/rest/api/2/search?jql=resolution%20%3D%20Unresolved&maxResults=0
+# auth    = bearer:JIRA_TOKEN
+# wert    = total
+# einheit = Tickets
+# warn    = 40
+# krit    = 80
+# link    = https://jira.firma.local/issues/?jql=resolution%20%3D%20Unresolved
+
+# --- Jira: die neuesten Tickets als Liste ------------------------------------
+# [jira-neu]
+# titel         = Zuletzt gemeldet
+# gruppe        = Servicedesk
+# url           = https://jira.firma.local/rest/api/2/search?jql=created%20%3E%3D%20-1d%20ORDER%20BY%20created%20DESC&maxResults=6&fields=summary,priority
+# auth          = bearer:JIRA_TOKEN
+# liste         = issues
+# eintrag_titel = fields.summary
+# eintrag_text  = fields.priority.name
+# max           = 6
+
+# --- Jira: unbearbeitete Tickets (aelter als 3 Tage) -------------------------
+# [jira-alt]
+# titel   = Unbearbeitet > 3 Tage
+# gruppe  = Servicedesk
+# url     = https://jira.firma.local/rest/api/2/search?jql=resolution%20%3D%20Unresolved%20AND%20updated%20%3C%3D%20-3d&maxResults=0
+# auth    = bearer:JIRA_TOKEN
+# wert    = total
+# einheit = Tickets
+# warn    = 5
+# krit    = 15
+
+# --- LOGINventory ------------------------------------------------------------
+# LOGINventory bietet eine REST-Schnittstelle (LOGINventory Web / OData).
+# Die genauen Pfade unterscheiden sich je Version - deshalb zuerst mit
+# --test pruefen und "wert" anpassen. Der Aufbau bleibt immer derselbe.
+# [loginv-geraete]
+# titel   = Erfasste Geräte
+# gruppe  = Inventar
+# url     = https://loginventory.firma.local/api/v1/devices?$count=true&$top=0
+# auth    = basic:LOGINV_USER:LOGINV_PASS
+# wert    = @odata.count
+# einheit = Geräte
+
+# --- LOGINventory: Geraete ohne Kontakt --------------------------------------
+# Die nuetzlichste Zahl aus einem Inventar: Was ist erfasst, meldet sich aber
+# nicht mehr? Das sind entweder ausgemusterte Geraete in der Liste oder
+# welche, die ausgefallen sind - beides will man wissen.
+# [loginv-still]
+# titel   = Ohne Kontakt > 30 Tage
+# gruppe  = Inventar
+# url     = https://loginventory.firma.local/api/v1/devices?$filter=LastInventory lt 2026-08-22&$count=true&$top=0
+# auth    = basic:LOGINV_USER:LOGINV_PASS
+# wert    = @odata.count
+# einheit = Geräte
+# warn    = 10
+# krit    = 30
+
+# --- Beispiel ohne Anmeldung: irgendeine interne Statusschnittstelle ---------
+# [lager]
+# titel   = Freie Lizenzen
+# gruppe  = Betrieb
+# url     = https://intern.firma.local/api/lizenzen
+# wert    = frei
+# einheit = Lizenzen
+# krit    = 2
+# warn    = 10

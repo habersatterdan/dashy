@@ -812,6 +812,86 @@
           "mode": "multi"
         }
       }
+    },
+    {
+      "type": "table",
+      "title": "Angebundene Anwendungen",
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "sonde"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "sonde"
+          },
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://nginx/data/connect.json",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "tiles",
+          "columns": [
+            {
+              "selector": "gruppe",
+              "text": "Gruppe",
+              "type": "string"
+            },
+            {
+              "selector": "titel",
+              "text": "Kennzahl",
+              "type": "string"
+            },
+            {
+              "selector": "wert",
+              "text": "Wert",
+              "type": "number"
+            },
+            {
+              "selector": "einheit",
+              "text": "Einheit",
+              "type": "string"
+            },
+            {
+              "selector": "state",
+              "text": "Zustand",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "description": "Alles aus config/connect.ini - LOGINventory, Jira, Ticketsystem. Hinzufuegen mit ./scripts/add.sh anwendung, ganz ohne Code.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Gruppe",
+            "desc": false
+          }
+        ]
+      }
     }
   ],
   "templating": {

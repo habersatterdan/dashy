@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kennzahlen</title>
+<style>
+  /* Gleiche validierte Status-Palette wie /lage/ und /wall/.
+     Grundregel: Farbe traegt nie allein Bedeutung - jede Kachel fuehrt
+     zusaetzlich ein Symbol und ein ausgeschriebenes Label. */
+  :root{
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8a8a80;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+    --rule:#2e2e2c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--plane); color:var(--ink); overflow:hidden; cursor:none;
+       font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+       font-variant-numeric:tabular-nums; display:flex; flex-direction:column}
+
+  header{display:flex; align-items:baseline; gap:22px; padding:16px 30px 12px;
+         border-bottom:1px solid var(--rule)}
+  h1{font-size:24px; font-weight:700; letter-spacing:.14em; text-transform:uppercase}
+  #sub{color:var(--ink-3); font-size:13px; letter-spacing:.06em}
+  #clock{margin-left:auto; font-size:36px; font-weight:600; line-height:1}
+
+  main{flex:1; min-height:0; overflow:hidden; padding:16px 30px 20px}
+
+  .grp{margin-bottom:18px}
+  .grp .gh{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+           color:var(--ink-3); margin:0 0 8px 2px}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px}
+
+  .tile{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+        border-left-width:6px; padding:12px 16px; display:flex; flex-direction:column; gap:4px}
+  .tile.ok      {border-left-color:var(--good)}
+  .tile.warn    {border-left-color:var(--warning)}
+  .tile.crit    {border-left-color:var(--critical)}
+  .tile.unknown {border-left-color:var(--ink-3)}
+
+  .tile .kopf{display:flex; align-items:center; gap:8px}
+  .tile .g{font-size:18px; line-height:1}
+  .tile.ok .g{color:var(--good)} .tile.warn .g{color:var(--warning)}
+  .tile.crit .g{color:var(--critical)} .tile.unknown .g{color:var(--ink-3)}
+  .tile .nm{font-size:15px; font-weight:700; letter-spacing:.02em}
+  .tile .lbl{margin-left:auto; font-size:10px; letter-spacing:.12em;
+             text-transform:uppercase; color:var(--ink-3)}
+
+  .tile .wert{font-size:44px; font-weight:700; line-height:1.05}
+  .tile.ok .wert{color:var(--good)} .tile.warn .wert{color:var(--warning)}
+  .tile.crit .wert{color:var(--critical)} .tile.unknown .wert{color:var(--ink-2)}
+  .tile .einheit{font-size:15px; font-weight:600; color:var(--ink-3); margin-left:6px}
+  .tile .txt{font-size:17px; color:var(--ink); line-height:1.3}
+
+  .tile ul{list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:2px}
+  .tile li{font-size:13px; color:var(--ink-2); line-height:1.35;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .tile li b{color:var(--ink); font-weight:600}
+
+  /* Fehler werden NICHT versteckt: eine Kachel, die nicht laedt, ist eine
+     Aussage ueber die Anwendung - keine, die man wegblenden darf. */
+  #fehler{margin-top:6px}
+  #fehler .gh{color:var(--serious)}
+  .ftile{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+         border-left:6px solid var(--serious); padding:10px 16px}
+  .ftile .nm{font-size:15px; font-weight:700}
+  .ftile .msg{font-size:13px; color:var(--ink-2); margin-top:2px}
+
+  #leer{color:var(--ink-3); font-size:17px; line-height:1.6; max-width:780px}
+  #leer code{color:var(--ink-2); background:var(--surface-2); padding:1px 6px; border-radius:4px}
+  footer{padding:8px 30px 14px; border-top:1px solid var(--rule);
+         color:var(--ink-3); font-size:12px; display:flex; gap:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kennzahlen</h1>
+  <span id="sub">Angebundene Anwendungen</span>
+  <span id="clock">--:--</span>
+</header>
+<main id="inhalt"></main>
+<footer><span id="stand">Noch keine Daten</span><span id="zahl"></span></footer>
+
+<script>
+const SYMBOL  = {ok:"●", warn:"▲", crit:"■", unknown:"?"};
+const LABEL   = {ok:"in Ordnung", warn:"Warnung", crit:"kritisch", unknown:"unklar"};
+const RANG    = {crit:0, warn:1, unknown:2, ok:3};
+
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+function uhr(){
+  const d = new Date();
+  document.getElementById("clock").textContent =
+    String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+
+function zahlform(w){
+  if (typeof w !== "number") return esc(w);
+  // Tausenderpunkte, aber keine erfundenen Nachkommastellen.
+  return w.toLocaleString("de-DE", {maximumFractionDigits: Number.isInteger(w) ? 0 : 1});
+}
+
+function kachel(k){
+  const st = k.state || "unknown";
+  let koerper;
+  if (Array.isArray(k.eintraege) && k.eintraege.length){
+    koerper = "<ul>" + k.eintraege.map(e =>
+      "<li><b>" + esc(e.titel) + "</b>" + (e.text ? " &middot; " + esc(e.text) : "") + "</li>"
+    ).join("") + "</ul>";
+  } else if (k.text){
+    koerper = '<div class="txt">' + esc(k.text) + "</div>";
+  } else if (k.wert === null || k.wert === undefined){
+    koerper = '<div class="txt">keine Angabe</div>';
+  } else {
+    koerper = '<div class="wert">' + zahlform(k.wert) +
+      (k.einheit ? '<span class="einheit">' + esc(k.einheit) + "</span>" : "") + "</div>";
+  }
+  return '<div class="tile ' + st + '">' +
+    '<div class="kopf"><span class="g">' + SYMBOL[st] + "</span>" +
+    '<span class="nm">' + esc(k.titel) + "</span>" +
+    '<span class="lbl">' + LABEL[st] + "</span></div>" +
+    koerper + "</div>";
+}
+
+function hinweisLeer(grund){
+  return '<div id="leer">' + grund + "<br><br>" +
+    "Neue Anwendung anbinden:<br><code>./scripts/add.sh anwendung</code><br><br>" +
+    "Das Skript fragt Adresse, Anmeldung und Schwellen ab und prueft die " +
+    "Anbindung sofort - fehlerhafte Angaben landen nie auf der Wand.</div>";
+}
+
+async function laden(){
+  const inhalt = document.getElementById("inhalt");
+  let d;
+  try {
+    const r = await fetch("/data/connect.json?t=" + Date.now(), {cache:"no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    d = await r.json();
+  } catch (e) {
+    inhalt.innerHTML = hinweisLeer(
+      "Der Universalanschluss liefert noch keine Daten (" + esc(e.message) + ").");
+    document.getElementById("stand").textContent = "Keine Verbindung zu /data/connect.json";
+    return;
+  }
+
+  const kacheln = Array.isArray(d.tiles) ? d.tiles : [];
+  const fehler  = Array.isArray(d.errors) ? d.errors : [];
+
+  if (!kacheln.length && !fehler.length){
+    inhalt.innerHTML = hinweisLeer("Es ist noch keine Anwendung angebunden.");
+  } else {
+    // Gruppen in der Reihenfolge ihres ersten Auftretens - so bestimmt die
+    // ini-Datei die Anordnung, ohne dass jemand Sortiernummern pflegen muss.
+    const gruppen = new Map();
+    for (const k of kacheln){
+      const g = k.gruppe || "Anwendungen";
+      if (!gruppen.has(g)) gruppen.set(g, []);
+      gruppen.get(g).push(k);
+    }
+    let html = "";
+    for (const [name, liste] of gruppen){
+      liste.sort((a,b) => (RANG[a.state] ?? 9) - (RANG[b.state] ?? 9)
+                          || String(a.titel).localeCompare(b.titel, "de"));
+      html += '<div class="grp"><div class="gh">' + esc(name) + "</div>" +
+              '<div class="tiles">' + liste.map(kachel).join("") + "</div></div>";
+    }
+    if (fehler.length){
+      html += '<div class="grp" id="fehler"><div class="gh">Nicht erreichbar (' +
+        fehler.length + ")</div><div class=\"tiles\">" +
+        fehler.map(f => '<div class="ftile"><div class="nm">' + esc(f.titel) +
+          '</div><div class="msg">' + esc(f.fehler) + "</div></div>").join("") +
+        "</div></div>";
+    }
+    inhalt.innerHTML = html;
+  }
+
+  const s = d.summary || {};
+  const alter = d.generated ? Math.round((Date.now() - new Date(d.generated)) / 60000) : null;
+  document.getElementById("stand").textContent =
+    alter === null ? "Stand unbekannt"
+    : alter <= 1 ? "Stand: gerade eben" : "Stand: vor " + alter + " Minuten";
+  document.getElementById("zahl").textContent =
+    (s.total || 0) + " Kennzahl(en), " + (s.crit || 0) + " kritisch, " +
+    (s.warn || 0) + " mit Warnung" + (s.fehler ? ", " + s.fehler + " nicht erreichbar" : "");
+}
+
+uhr(); laden();
+setInterval(uhr, 10000);
+setInterval(laden, 60000);
+</script>
+</body>
+</html>

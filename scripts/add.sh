@@ -10,7 +10,7 @@
 #
 #   ./scripts/add.sh                 # fragt alles ab
 #   ./scripts/add.sh zabbix          # direkt der passende Abschnitt
-#   ./scripts/add.sh website|feed|grafana|liste
+#   ./scripts/add.sh website|feed|grafana|gruppe|anwendung|liste
 # -----------------------------------------------------------------------------
 set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -211,6 +211,152 @@ add_feed(){
   pruefe_url "/feeds/${slug}"
 }
 
+# --- Beliebige Anwendung (REST) ----------------------------------------------
+# WARUM: LOGINventory, Jira, ein Ticketsystem - alle koennen JSON. Der
+# Universalanschluss macht daraus eine Kachel, ohne dass jemand Code schreibt.
+# Der entscheidende Schritt ist der letzte: die Anbindung wird SOFORT getestet.
+# Ein falscher Pfad faellt hier auf, nicht drei Tage spaeter auf der Wand.
+add_anwendung(){
+  echo "${B}Anwendung anbinden (LOGINventory, Jira, Ticketsystem ...)${D}"
+  echo
+  echo "  Gebraucht wird eine Adresse, die JSON zurueckgibt. Beispiele:"
+  echo "    Jira, offene Tickets:"
+  echo "      https://jira.firma.de/rest/api/2/search?jql=resolution=Unresolved&maxResults=0"
+  echo "    LOGINventory, Geraetezahl:"
+  echo "      https://loginv.firma.local/api/odata/Device?\$count=true&\$top=0"
+  echo
+
+  local name url auth art var var2 wertpfad listenpfad titel gruppe einheit warn krit link
+  name="$(frage 'Kurzname (z. B. jira-offen)')"
+  name="$(echo "${name}" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9-')"
+  [ -z "${name}" ] && { fehler "Kurzname fehlt."; return 1; }
+
+  sicherstellen config/connect.ini
+  if [ -f config/connect.ini ] && grep -qE "^\[${name}\]" config/connect.ini; then
+    fehler "'${name}' gibt es schon in config/connect.ini."
+    echo "         Bitte einen anderen Kurznamen waehlen oder den Abschnitt dort loeschen."
+    return 1
+  fi
+
+  url="$(frage 'Adresse (vollstaendig, mit https://)')"
+  [ -z "${url}" ] && { fehler "Adresse fehlt."; return 1; }
+
+  echo
+  echo "  Wie meldet sich die Anwendung an?"
+  echo "    1) gar nicht (offen im internen Netz)"
+  echo "    2) Token / API-Key im Authorization-Header (Jira Cloud, viele REST-APIs)"
+  echo "    3) Benutzer und Passwort (LOGINventory, aeltere Systeme)"
+  echo "    4) eigener Kopfzeilenname, z. B. X-Api-Key"
+  auth=""
+  case "$(frage 'Auswahl [1]')" in
+    2) var="$(frage 'NAME der Variablen fuer den Token (z. B. JIRA_TOKEN)')"
+       auth="bearer:${var}" ;;
+    3) var="$(frage 'NAME der Variablen fuer den Benutzer (z. B. LOGINV_USER)')"
+       var2="$(frage 'NAME der Variablen fuer das Passwort (z. B. LOGINV_PASS)')"
+       auth="basic:${var}:${var2}" ;;
+    4) art="$(frage 'Name der Kopfzeile (z. B. X-Api-Key)')"
+       var="$(frage 'NAME der Variablen mit dem Wert (z. B. LOGINV_KEY)')"
+       auth="header:${art}:${var}" ;;
+  esac
+
+  # Der wichtigste Sicherheitspunkt dieses Skripts: in die ini kommt NUR der
+  # Name. Der Wert wird hier gleich in secrets.env gelegt, damit niemand
+  # in Versuchung kommt, ihn doch in die ini zu schreiben.
+  if [ -n "${auth}" ]; then
+    sicherstellen config/secrets.env
+    local v
+    for v in ${var:-} ${var2:-}; do
+      case "${v}" in ""|X-*) continue ;; esac
+      if grep -qE "^${v}=.+" config/secrets.env 2>/dev/null; then
+        ok "${v} steht bereits in config/secrets.env"
+      else
+        local wert; read -r -s -p "  Wert fuer ${v} (Eingabe bleibt unsichtbar): " wert; echo
+        if [ -n "${wert}" ]; then
+          sed -i "/^${v}=/d" config/secrets.env
+          printf '%s=%s\n' "${v}" "${wert}" >> config/secrets.env
+          chmod 600 config/secrets.env 2>/dev/null
+          ok "${v} in config/secrets.env hinterlegt (Datei nur fuer dich lesbar)"
+        else
+          warn "${v} bleibt leer - die Kachel wird fehlschlagen, bis der Wert drin steht."
+        fi
+      fi
+    done
+  fi
+
+  echo
+  echo "  Soll eine ZAHL oder eine LISTE angezeigt werden?"
+  echo "    1) eine Zahl (offene Tickets, Geraetezahl, freier Speicher)"
+  echo "    2) eine Liste (die neuesten Tickets, die letzten Meldungen)"
+  local formart; formart="$(frage 'Auswahl [1]')"; formart="${formart:-1}"
+
+  echo
+  echo "  Jetzt der Pfad zum Wert in der Antwort. Punktschreibweise, z. B.:"
+  echo "    total                      -> {\"total\": 47}"
+  echo "    @odata.count               -> LOGINventory / OData"
+  echo "    len:issues                 -> zaehlt die Eintraege der Liste 'issues'"
+  echo "    issues[0].fields.summary   -> erster Eintrag, Feld summary"
+  echo "  Unsicher? Adresse einmal im Browser oeffnen und hineinsehen."
+  if [ "${formart}" = "2" ]; then
+    listenpfad="$(frage 'Pfad zur Liste (z. B. issues)')"
+    wertpfad=""
+    titel="$(frage 'Pfad zur Ueberschrift je Eintrag (z. B. fields.summary)')"
+    link="$(frage 'Pfad zum Zusatztext je Eintrag (z. B. key) [leer]')"
+  else
+    wertpfad="$(frage 'Pfad zum Wert')"
+    listenpfad=""
+  fi
+
+  echo
+  gruppe="$(frage 'Gruppe auf der Wand [Anwendungen]')"; gruppe="${gruppe:-Anwendungen}"
+  local anzeige; anzeige="$(frage "Ueberschrift der Kachel [${name}]")"; anzeige="${anzeige:-${name}}"
+  einheit="$(frage 'Einheit [leer]')"
+  echo "  Schwellen (leer lassen = nie faerben). Steht der kritische Wert UNTER"
+  echo "  dem Warnwert, wird umgekehrt gezaehlt - fuer \"freier Speicher\"."
+  warn="$(frage 'Warnung ab')"
+  krit="$(frage 'Kritisch ab')"
+
+  {
+    printf '\n[%s]\n' "${name}"
+    printf 'titel  = %s\n' "${anzeige}"
+    printf 'gruppe = %s\n' "${gruppe}"
+    printf 'url    = %s\n' "${url}"
+    [ -n "${auth}" ]       && printf 'auth   = %s\n' "${auth}"
+    [ -n "${listenpfad}" ] && printf 'liste  = %s\n' "${listenpfad}"
+    [ -n "${listenpfad}" ] && [ -n "${titel}" ] && printf 'eintrag_titel = %s\n' "${titel}"
+    [ -n "${listenpfad}" ] && [ -n "${link}" ]  && printf 'eintrag_text  = %s\n' "${link}"
+    [ -n "${wertpfad}" ]   && printf 'wert   = %s\n' "${wertpfad}"
+    [ -n "${einheit}" ]    && printf 'einheit = %s\n' "${einheit}"
+    [ -n "${warn}" ]       && printf 'warn   = %s\n' "${warn}"
+    [ -n "${krit}" ]       && printf 'krit   = %s\n' "${krit}"
+  } >> config/connect.ini
+  ok "in config/connect.ini eingetragen"
+
+  # Sofort ausprobieren - im Container, damit dieselben Zertifikate und
+  # dieselben Zugangsdaten gelten wie im Dauerbetrieb.
+  echo
+  echo "  Probiere die Anbindung aus ..."
+  if docker compose run --rm --no-deps connect python /app/connect.py --test "${name}"; then
+    ok "Die Anbindung liefert einen Wert."
+  else
+    fehler "Die Anbindung liefert noch keinen Wert - siehe Meldung oben."
+    echo "         Der Abschnitt [${name}] steht bereits in config/connect.ini;"
+    echo "         dort Pfad oder Adresse korrigieren und erneut pruefen mit:"
+    echo "           docker compose run --rm --no-deps connect python /app/connect.py --test ${name}"
+  fi
+
+  docker compose up -d connect >/dev/null 2>&1 && ok "Universalanschluss laeuft" \
+    || warn "Start fehlgeschlagen - von Hand: docker compose up -d connect"
+
+  # Die Seite selbst muss nur einmal in die Rotation.
+  sicherstellen config/pages.txt
+  if [ -f config/pages.txt ] && ! grep -q '/kennzahlen/' config/pages.txt; then
+    printf '%-17s | %-14s | %s\n' "Kennzahlen" "/kennzahlen/" "40" >> config/pages.txt
+    ok "Seite /kennzahlen/ in die Rotation aufgenommen"
+    anwenden
+  fi
+  pruefe_url "/kennzahlen/"
+}
+
 # --- Grafana-Dashboard -------------------------------------------------------
 add_grafana(){
   echo "${B}Grafana-Dashboard hinzufuegen${D}"
@@ -301,6 +447,13 @@ zeige_liste(){
   [ -f config/news.txt ] && grep -vE '^\s*(#|$)' config/news.txt | sed 's/^/  /' \
     || echo "  (nicht angelegt)"
   echo
+  echo "${B}Angebundene Anwendungen${D}  (config/connect.ini)"
+  if [ -f config/connect.ini ] && grep -qE '^\[' config/connect.ini; then
+    grep -E '^\[' config/connect.ini | tr -d '[]' | sed 's/^/  /'
+  else
+    echo "  (keine - anbinden mit ./scripts/add.sh anwendung)"
+  fi
+  echo
   echo "  Entfernen: Zeile in der Datei loeschen oder mit # davor auskommentieren,"
   echo "  danach: docker compose restart nginx"
 }
@@ -314,11 +467,12 @@ if [ -z "${art}" ]; then
   echo "  3) Nachrichtenquelle (RSS/Atom)"
   echo "  4) Grafana-Dashboard von diesem Pi"
   echo "  5) Eigene Wandseite fuer eine Zabbix-Hostgruppe (empfohlen)"
-  echo "  6) Nur anzeigen, was schon drin ist"
+  echo "  6) Beliebige Anwendung mit REST-Schnittstelle (LOGINventory, Jira ...)"
+  echo "  7) Nur anzeigen, was schon drin ist"
   echo
   case "$(frage 'Auswahl')" in
     1) art=zabbix ;; 2) art=website ;; 3) art=feed ;;
-    4) art=grafana ;; 5) art=gruppe ;; 6) art=liste ;;
+    4) art=grafana ;; 5) art=gruppe ;; 6) art=anwendung ;; 7) art=liste ;;
     *) fehler "Unbekannte Auswahl."; exit 1 ;;
   esac
 fi
@@ -330,9 +484,10 @@ case "${art}" in
   feed)    add_feed ;;
   grafana) add_grafana ;;
   gruppe)  add_gruppe ;;
+  anwendung|app) add_anwendung ;;
   liste)   zeige_liste; exit 0 ;;
   *) fehler "Unbekannt: ${art}"
-     echo "  zabbix | website | feed | grafana | gruppe | liste"; exit 1 ;;
+     echo "  zabbix | website | feed | grafana | gruppe | anwendung | liste"; exit 1 ;;
 esac
 
 echo

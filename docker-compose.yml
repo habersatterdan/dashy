@@ -437,6 +437,58 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
+  # Universalanschluss - bindet JEDE Anwendung mit REST-Schnittstelle an.
+  # Gesteuert ueber config/connect.ini (LOGINventory, Jira, Ticketsystem ...).
+  # Kein Code noetig: ./scripts/add.sh anwendung fragt alles ab.
+  # Zugangsdaten stehen nur in config/secrets.env, nie in der ini-Datei.
+  # Ohne connect.ini schlaeft der Dienst - er kostet dann nichts.
+  # ---------------------------------------------------------------------------
+  connect:
+    image: python:3.12-alpine
+    container_name: connect
+    restart: unless-stopped
+    command: ["python", "/app/connect.py"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    env_file:
+      - config/secrets.env
+    volumes:
+      - ./services/connect:/app:ro
+      - ./config:/config:ro
+      - ./state:/state
+      - ./nginx/certs:/certs:ro
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
+    environment:
+      - CONNECT_CONF=/config/connect.ini
+      - CONNECT_POLL_SECONDS=${CONNECT_POLL_SECONDS:-300}
+      - CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-20}
+      # Nur bewusst abschalten: interne Anwendungen mit eigenem Zertifikat
+      # gehoeren eigentlich mit ihrer CA in HOST_CA_BUNDLE.
+      - CONNECT_VERIFY_TLS=${CONNECT_VERIFY_TLS:-true}
+      - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
+      - TZ=${TZ:-Europe/Berlin}
+    healthcheck:
+      # Ohne connect.ini gibt es nichts zu tun - dann gilt der Dienst als gesund.
+      test: ["CMD-SHELL", "python -c \"import os,time,sys; c='/config/connect.ini'; f='/state/connect.json'; sys.exit(0 if not os.path.exists(c) or (os.path.exists(f) and time.time()-os.path.getmtime(f) < 3*int(os.getenv('CONNECT_POLL_SECONDS','300'))) else 1)\""]
+      interval: 120s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
   # CVE-Watcher - meldet externe Schwachstellen, die EURE Produkte betreffen.
   # Zieht Advisory-Feeds, holt echtes CVSS von der NVD, prueft CISAs KEV-Liste,
   # filtert gegen config/watchlist.txt und sendet JSON-Webhooks (P1/P2).

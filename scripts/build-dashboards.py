@@ -405,6 +405,22 @@ def dash_security():
               "tooltip": {"mode": "multi"}},
         desc="Der Grundpegel ist immer da. Interessant ist die Abweichung "
              "davon - deshalb als Verlauf und nicht als Zahl."))
+    # Angebundene Anwendungen (config/connect.ini). Bleibt leer, solange
+    # nichts angebunden ist - das Panel kostet dann nichts und muss nicht
+    # von Hand entfernt werden.
+    p.append(panel("table", "Angebundene Anwendungen", 0, 27, 24, 7,
+        sonde_query("http://nginx/data/connect.json", "tiles",
+                    [("gruppe", "Gruppe", "string"),
+                     ("titel", "Kennzahl", "string"),
+                     ("wert", "Wert", "number"),
+                     ("einheit", "Einheit", "string"),
+                     ("state", "Zustand", "string")]),
+        ds=INF,
+        opts={"showHeader": True, "cellHeight": "sm",
+              "sortBy": [{"displayName": "Gruppe", "desc": False}]},
+        desc="Alles aus config/connect.ini - LOGINventory, Jira, Ticketsystem. "
+             "Hinzufuegen mit ./scripts/add.sh anwendung, ganz ohne Code."))
+
     return dashboard("noc-security", "NOC · Security & Trends", p, refresh="1m", zeit="now-7d")
 
 

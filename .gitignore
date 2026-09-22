@@ -35,3 +35,4 @@ config/cve-feeds.txt
 grafana/provisioning/datasources/zabbix.yml
 config/news.txt
 config/gruppen.txt
+config/connect.ini

@@ -61,6 +61,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
 | **Spalten auf `/news/`** festlegen | `config/news.txt` | `docker compose restart nginx` |
 | **Eigene Wandseite je Zabbix-Hostgruppe** | `config/gruppen.txt` | `./scripts/update.sh` |
+| **Eine beliebige Anwendung anbinden** (LOGINventory, Jira, Ticketsystem …) | `config/connect.ini` → besser: `./scripts/add.sh anwendung` | `docker compose restart connect` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
 | **Prüfen, ob alles läuft und sicher steht** | — | `./scripts/status.sh` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
@@ -611,6 +612,108 @@ Dashboards — einzeln, mit dem jeweils nächsten Schritt.
 Fehlt `ZABBIX_API_TOKEN`, wird die Datenquelle **bewusst nicht** geschrieben —
 Grafana startet dann ohne Zabbix statt mit einer Quelle, die bei jedem Panel
 einen Fehler wirft.
+
+## Der Universalanschluss — jede Anwendung auf die Wand, ohne Code
+
+**Das Problem:** Für Zabbix, Microsoft 365 und die CVE-Quellen gibt es je einen
+eigenen Dienst, weil dort echte Logik steckt. Für LOGINventory, Jira, ein
+Ticketsystem oder die Telefonanlage wäre das Verschwendung — dort ist es immer
+derselbe Ablauf: eine Adresse abrufen, eine Zahl herausziehen, Schwellen
+anlegen, anzeigen. Für jede dieser Anwendungen einen Dienst zu schreiben hieße,
+dass nur ich neue Anwendungen anbinden kann.
+
+**Die Lösung:** ein Dienst (`connect`), gesteuert über `config/connect.ini`.
+Neue Anwendung = ein Abschnitt in einer Textdatei. Ergebnis ist eine Kachel auf
+`https://<pi>/kennzahlen/`.
+
+```bash
+./scripts/add.sh anwendung
+```
+
+Fragt Adresse, Anmeldung, Pfad zum Wert und Schwellen ab — und **probiert die
+Anbindung sofort aus**, bevor sie je auf der Wand landet.
+
+### Die ini in voller Breite
+
+```ini
+[jira-offen]
+titel  = Offene Tickets
+gruppe = Tickets
+url    = https://jira.firma.de/rest/api/2/search?jql=resolution=Unresolved&maxResults=0
+auth   = bearer:JIRA_TOKEN
+wert   = total
+warn   = 40
+krit   = 60
+
+[jira-neu]
+titel  = Neueste Tickets
+gruppe = Tickets
+url    = https://jira.firma.de/rest/api/2/search?jql=ORDER BY created DESC&maxResults=6
+auth   = bearer:JIRA_TOKEN
+liste  = issues
+eintrag_titel = fields.summary
+eintrag_text  = key
+max    = 6
+
+[loginventory-geraete]
+titel  = Geräte im Bestand
+gruppe = Inventar
+url    = https://loginv.firma.local/api/odata/Device?$count=true&$top=0
+auth   = basic:LOGINV_USER:LOGINV_PASS
+wert   = @odata.count
+einheit = Geräte
+```
+
+| Schlüssel | Bedeutung |
+|---|---|
+| `url` | die JSON-Adresse |
+| `auth` | `bearer:VAR` · `basic:USER_VAR:PASS_VAR` · `header:Name:VAR` · `query:name:VAR` |
+| `wert` | Punktpfad zur Zahl (`total`, `@odata.count`, `len:issues`, `a[0].b`) |
+| `liste` | statt `wert`: Pfad zu einer Liste, dazu `eintrag_titel` / `eintrag_text` / `max` |
+| `warn` / `krit` | Schwellen. **Steht `krit` unter `warn`, wird umgekehrt gezählt** — für „freier Speicher" |
+| `gruppe` | Überschrift auf `/kennzahlen/`; die Reihenfolge der Gruppen folgt der ini |
+| `aktiv = false` | Abschnitt vorübergehend stilllegen, ohne ihn zu löschen |
+
+### Zwei Eigenschaften, die den Unterschied machen
+
+**Zugangsdaten stehen nie in der ini.** `auth = bearer:JIRA_TOKEN` nennt nur den
+*Namen* einer Variablen aus `config/secrets.env`. Die ini kann damit bedenkenlos
+herumgereicht, in ein Ticket kopiert oder einem Kollegen gezeigt werden — ein
+Blick hinein verrät kein einziges Geheimnis.
+
+**Ein falscher Pfad ist ein Fehler, keine leere Kachel.** Zeigt `wert` ins
+Leere, bricht der Abruf ab und nennt die Schlüssel, die wirklich da sind:
+
+```
+FEHLER  loginventory-geraete: Pfad 'count' kommt in der Antwort nicht vor.
+        Vorhanden ist: @odata.context, @odata.count, value
+```
+
+Auf der Wand erscheint die Anwendung dann unter **„Nicht erreichbar"** — sichtbar,
+nicht weggeblendet. Eine Kachel, die nicht lädt, ist selbst eine Aussage über
+die Anwendung.
+
+### Prüfen
+
+```bash
+docker compose exec connect python /app/connect.py --test              # alle
+docker compose exec connect python /app/connect.py --test jira-offen   # eine
+```
+
+`./scripts/status.sh` meldet dasselbe im Überblick.
+
+### Sicherheit
+
+Der Dienst läuft wie `probe` und `m365`: als Nicht-Root, mit `read_only: true`,
+`cap_drop: ALL`, `no-new-privileges` und nur `/tmp` im Arbeitsspeicher. Er
+**ruft nur ab** (ausschließlich `GET`) und schreibt allein
+`/state/connect.json`. Ohne `config/connect.ini` schläft er und kostet nichts.
+
+Interne Anwendungen mit eigenem Zertifikat gehören mit ihrer CA in
+`HOST_CA_BUNDLE`. `CONNECT_VERIFY_TLS=false` gibt es, ist aber eine bewusste
+Entscheidung für den gesamten Dienst — nicht der Normalfall.
+
+---
 
 ## Betriebslage — die eigentliche Wand
 

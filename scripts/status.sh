@@ -168,6 +168,25 @@ if grep -qE '^M365_TENANT_ID=.+' config/secrets.env 2>/dev/null; then
   fi
 fi
 
+# 4d. Universalanschluss - Fehler dort sind stille Luecken auf der Wand.
+if [ -f config/connect.ini ] && grep -qE '^\[' config/connect.ini; then
+  n_app="$(grep -cE '^\[' config/connect.ini)"
+  if curl -sk -m 12 https://127.0.0.1/data/connect.json 2>/dev/null \
+       | grep -q '"tiles"'; then
+    n_err="$(curl -sk -m 12 https://127.0.0.1/data/connect.json 2>/dev/null \
+             | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("errors",[])))' 2>/dev/null)"
+    if [ "${n_err:-0}" = "0" ]; then
+      ok "Universalanschluss: ${n_app} Anwendung(en), alle erreichbar"
+    else
+      warn "Universalanschluss: ${n_err} von ${n_app} Anwendung(en) nicht erreichbar"
+      tipp "docker compose exec connect python /app/connect.py --test"
+    fi
+  else
+    bad "config/connect.ini ist gefuellt, aber /data/connect.json liefert nichts"
+    tipp "docker compose logs --tail 30 connect"
+  fi
+fi
+
 # 5. HTTP darf nur auf HTTPS umlenken, nichts ausliefern.
 code="$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1/lage/ 2>/dev/null)"
 case "${code}" in

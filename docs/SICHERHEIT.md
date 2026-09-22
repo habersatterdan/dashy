@@ -153,6 +153,30 @@ nie; in `/data/m365.json` stehen ausschließlich Zustände.
 Karte leer und der Grund (`AADSTS7000215`) steht nur im Log. `status.sh` meldet
 es, sobald M365 eingerichtet ist, aber keine Daten liefert.
 
+### 6. Der Universalanschluss — Zugangsdaten und Vertrauen
+
+Der Dienst `connect` bindet beliebige Anwendungen an (`config/connect.ini`).
+Drei Eigenschaften machen das vertretbar:
+
+**Er ruft nur ab.** Ausschließlich `GET`. Es gibt keinen Weg, über
+`connect.ini` etwas in einer angebundenen Anwendung zu *ändern* — auch nicht
+versehentlich, auch nicht durch einen Tippfehler.
+
+**Zugangsdaten stehen nicht in der Konfiguration.** In der ini steht nur der
+*Name* einer Variablen aus `config/secrets.env` (`auth = bearer:JIRA_TOKEN`).
+Damit kann die ini herumgereicht, in ein Ticket kopiert oder versioniert
+werden, ohne dass ein Geheimnis mitläuft. `./scripts/add.sh anwendung` fragt
+den Wert unsichtbar ab und legt ihn selbst in `secrets.env` mit `chmod 600` ab.
+
+**Vergebt Leserechte, keine Administratorrechte.** Der Token, den ihr hier
+hinterlegt, liegt auf einem Gerät, das im Flur hängt. Legt in Jira und
+LOGINventory einen eigenen Benutzer an, der genau die eine Abfrage darf, die
+auf der Wand steht — nicht euren persönlichen Zugang.
+
+`CONNECT_VERIFY_TLS=false` schaltet die Zertifikatsprüfung für **alle**
+Anbindungen ab, nicht nur für die eine, die zickt. Der richtige Weg ist, die
+interne CA in `HOST_CA_BUNDLE` aufzunehmen.
+
 ---
 
 ## Was dieses System bewusst NICHT tut
@@ -168,6 +192,9 @@ Ehrlichkeit ist hier wichtiger als eine lange Featureliste:
 - **Es authentifiziert keine Betrachter.** Wer den Pi im Netz erreicht, sieht die
   Wandseiten. Das ist Absicht (eine Wand hat keine Anmeldung) und der Grund für
   Punkt 2 oben.
+- **Es prüft nicht, was angebundene Anwendungen antworten.** `connect` zeigt
+  die Zahl, die zurückkommt. Wer eine angebundene Anwendung kontrolliert, kann
+  die Wand belügen. Bindet nur Systeme an, denen ihr ohnehin vertraut.
 - **Der Screenshot-Dienst ist ein Browser.** `shotter` rendert fremde Seiten mit
   Chromium — genau die Angriffsfläche, gegen die Browser-Sandboxes gebaut sind.
   Er startet deshalb **gar nicht mehr mit**, sondern nur auf Wunsch:
