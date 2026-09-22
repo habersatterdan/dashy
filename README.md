@@ -28,6 +28,11 @@ Prüft Container, alle Wandseiten, die Datenquellen, **die Sicherheit** und das
 System — mit Ampel am Ende und dem jeweils nächsten Schritt bei jedem Befund.
 Das ist auch das, was man anhängt, wenn man um Hilfe bittet.
 
+> **Zum Abarbeiten: [`docs/INBETRIEBNAHME.md`](docs/INBETRIEBNAHME.md)** — die
+> vollstaendige Anleitung zum Kopieren, von „Stand holen" bis „laeuft".
+> Fangt dort an, wenn ihr das System frisch aufsetzt oder lange nicht
+> aktualisiert habt.
+>
 > **Microsoft 365: [`docs/M365.md`](docs/M365.md)** — die echte Tenant-Lage über
 > die Graph-API, mit genau **einer** Berechtigung (`ServiceHealth.Read.All`).
 >
@@ -277,6 +282,10 @@ editing `conf.yml`/`pages/*.yml`, and setting `DASHY_PROFILE=<name>`.
 
 ## Documentation
 
+- [docs/INBETRIEBNAHME.md](docs/INBETRIEBNAHME.md) — **Anleitung zum Kopieren** (Reihenfolge, Pruefungen, Fehlerbilder)
+- [docs/BEDIENUNG.md](docs/BEDIENUNG.md) — **Bedienung fuers Team** (etwas hinzufuegen, ohne den Aufbau zu kennen)
+- [docs/SICHERHEIT.md](docs/SICHERHEIT.md) — Bedrohungsmodell, Entscheidungen, Haertung
+- [docs/M365.md](docs/M365.md) — Microsoft 365 ueber die Graph-API anbinden
 - [docs/SETUP-PI.md](docs/SETUP-PI.md) — **Schritt-für-Schritt auf dem Pi** (Konfiguration, Start, Webhook-Test)
 - [docs/INSTALL.md](docs/INSTALL.md) — installation guide
 - [docs/UPDATE.md](docs/UPDATE.md) — update guide (Watchtower + manual)
