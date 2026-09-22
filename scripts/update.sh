@@ -42,6 +42,17 @@ echo "==> [2/4] Rendere Konfiguration und baue Grafana-Dashboards"
 python3 ./scripts/render-config.py
 python3 ./scripts/build-dashboards.py
 
+# Die Python-Dienste laufen nicht mehr als root (siehe docker-compose.yml).
+# Damit sie ihren Zustand schreiben koennen, muss ./state dem Benutzer
+# gehoeren, unter dem sie laufen - sonst startet alles, aber nichts wird
+# gespeichert, und das faellt erst Tage spaeter auf.
+uid="${RUN_UID:-$(id -u)}"; gid="${RUN_GID:-$(id -g)}"
+mkdir -p state shots backups
+if [ "$(stat -c '%u' state)" != "${uid}" ]; then
+  echo "==> Setze Eigentuemer von ./state auf ${uid}:${gid}"
+  sudo chown -R "${uid}:${gid}" state 2>/dev/null || chown -R "${uid}:${gid}" state
+fi
+
 echo "==> [3/4] Erzeuge Container neu (loest das Inode-Problem)"
 docker compose up -d --force-recreate
 

@@ -346,7 +346,29 @@ def dash_security():
         desc="Alter des juengsten erfolgreichen Laufs. Ueber 25 Stunden gelb, "
              "ueber 48 rot - ein Backup, das niemand prueft, ist keins."))
 
-    p.append(panel("table", "Offene Schwachstellen mit Bezug zu uns", 0, 5, 14, 10,
+    p.append(panel("stat", "Microsoft 365", 0, 5, 7, 5,
+        sonde_query("http://nginx/data/m365.json", "summary",
+                    [("ok", "OK", "number"), ("warn", "Beeintraechtigt", "number"),
+                     ("crit", "Gestoert", "number")]),
+        ds=INF, unit="none",
+        thresholds=schwellen((1, WARN), base=GOOD),
+        opts={"graphMode": "none", "colorMode": "value", "textMode": "value_and_name",
+              "orientation": "horizontal",
+              "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}},
+        desc="Aus der Graph-API - die echte Lage EURES Tenants, nicht der "
+             "oeffentliche Aenderungsfeed."))
+
+    p.append(panel("table", "M365 - laufende Vorfaelle", 7, 5, 7, 5,
+        sonde_query("http://nginx/data/m365.json", "issues",
+                    [("service", "Dienst", "string"),
+                     ("title", "Vorfall", "string"),
+                     ("classification", "Art", "string"),
+                     ("startDateTime", "Seit", "string")]),
+        ds=INF,
+        opts={"showHeader": True, "cellHeight": "sm"},
+        desc="Nur unerledigte. Behobene interessieren auf einer Wand nicht."))
+
+    p.append(panel("table", "Offene Schwachstellen mit Bezug zu uns", 0, 10, 14, 10,
         sonde_query("http://nginx/data/cve.json", "findings",
                     [("priority", "Prio", "string"),
                      ("title", "Advisory", "string"),
@@ -359,14 +381,14 @@ def dash_security():
         desc="Gruppiert nach Advisory, nicht nach CVE - ein Sammeladvisory mit "
              "sieben CVEs ist eine Aufgabe, nicht sieben."))
 
-    p.append(panel("timeseries", "Problem-Aufkommen (7 Tage)", 14, 5, 10, 10,
+    p.append(panel("timeseries", "Problem-Aufkommen (7 Tage)", 14, 10, 10, 10,
         zbx_probleme(),
         unit="none",
         opts={"legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
         desc="Wird es besser oder schlechter? Die Frage, die in der taeglichen "
              "Hektik untergeht - und die jeden Vorgesetzten interessiert."))
 
-    p.append(panel("state-timeline", "Patchstand der Server", 0, 15, 12, 7,
+    p.append(panel("state-timeline", "Patchstand der Server", 0, 20, 12, 7,
         zbx_metrik("/Windows|Server/", "/.*/", "/pending updates|ausstehende Updates/"),
         unit="none",
         thresholds=schwellen((1, WARN), (10, SERIOUS), (25, CRIT), base=GOOD),
@@ -375,7 +397,7 @@ def dash_security():
         desc="Ausstehende Updates je Server ueber die Zeit. Zeigt nicht nur "
              "den Stand, sondern ob ueberhaupt gepatcht wird."))
 
-    p.append(panel("timeseries", "Firewall - abgewiesene Verbindungen", 12, 15, 12, 7,
+    p.append(panel("timeseries", "Firewall - abgewiesene Verbindungen", 12, 20, 12, 7,
         zbx_metrik("/Firewall|Fortinet/", "/.*/", "/deny|dropped|blocked/"),
         unit="short",
         opts={"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},

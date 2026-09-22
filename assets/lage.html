@@ -49,6 +49,22 @@
   #verdict.crit{animation:pulse 2.4s ease-in-out infinite}
   @keyframes pulse{0%,100%{background:var(--surface)}50%{background:#241717}}
 
+  /* Microsoft 365 als eigene Zeile: es ist weder ein eigener Dienst in der
+     Sonde noch ein Zabbix-Problem, aber genauso wichtig - und die Frage
+     "liegt es an uns oder an Microsoft" beantwortet es sofort. */
+  .m365{display:flex; align-items:center; gap:14px; margin:12px 30px 0;
+        padding:11px 22px; border-radius:10px; border:1px solid var(--rule);
+        background:var(--surface); border-left-width:6px}
+  .m365.ok{border-left-color:var(--good)}
+  .m365.warn{border-left-color:var(--warning)}
+  .m365.crit{border-left-color:var(--critical)}
+  .m365 .g{font-size:22px; line-height:1}
+  .m365.ok .g{color:var(--good)} .m365.warn .g{color:var(--warning)}
+  .m365.crit .g{color:var(--critical)}
+  .m365 .nm{font-size:18px; font-weight:700}
+  .m365 .tx{font-size:15px; color:var(--ink-2)}
+  .m365 .rt{margin-left:auto; font-size:13px; color:var(--ink-3)}
+
   #kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:14px 30px 4px}
   .kpi{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
        padding:12px 16px; display:flex; flex-direction:column; gap:2px}
@@ -122,6 +138,8 @@
   <span class="txt">Messung läuft …</span>
   <span class="note" id="vnote"></span>
 </div>
+
+<div id="m365" class="m365" hidden></div>
 
 <div id="kpis">
   <div class="kpi ok"><span class="n" id="k-ok">–</span><span class="l">Systeme in Ordnung</span></div>
@@ -323,7 +341,33 @@ async function loadZabbix(){
   }
 }
 
-function refresh(){ loadProbe(); loadZabbix(); }
+/* --- Microsoft 365 -------------------------------------------------------
+   Kommt aus /data/m365.json (Graph-API, Dienst "m365"). Fehlt die Datei, ist
+   M365 schlicht nicht angebunden - dann bleibt die Zeile weg statt einen
+   Fehler zu zeigen. */
+async function loadM365(){
+  const el = $('m365');
+  try{
+    const r = await fetch('/data/m365.json?t=' + Date.now(), {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const s = d.summary || {};
+    const schlecht = (d.services || []).filter(x => x.state !== 'ok');
+    el.hidden = false;
+    const stufe = s.crit ? 'crit' : (s.warn ? 'warn' : 'ok');
+    el.className = 'm365 ' + stufe;
+    el.innerHTML = `<span class="g">${{ok:'✓',warn:'!',crit:'✕'}[stufe]}</span>
+        <span class="nm">Microsoft 365</span>
+        <span class="tx">${stufe === 'ok'
+          ? `alle ${s.total} Dienste ohne Störung`
+          : schlecht.slice(0,4).map(x => esc(x.service)).join(' · ')}</span>
+        <span class="rt">${s.incidents || 0} Vorfälle · ${s.advisories || 0} Hinweise</span>`;
+  } catch(e){
+    el.hidden = true;     // nicht angebunden ist kein Fehler
+  }
+}
+
+function refresh(){ loadProbe(); loadZabbix(); loadM365(); }
 tickClock(); setInterval(tickClock, 1000);
 refresh(); setInterval(refresh, REFRESH_MS);
 </script>

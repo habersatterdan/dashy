@@ -31,6 +31,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 90s
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:
@@ -50,9 +59,14 @@ services:
     depends_on:
       dashy:
         condition: service_healthy
+    # Standardmaessig lauscht Nginx auf allen Adressen des Pi. Hat der Pi mehr
+    # als eine (WLAN + LAN, oder mehrere VLANs), kann man ihn hier an genau
+    # eine binden: BIND_ADDR=10.30.50.12 in .env. Dann ist die Wand aus den
+    # anderen Netzen gar nicht erst erreichbar - wirksamer als jede Regel im
+    # Webserver.
     ports:
-      - "80:80"
-      - "443:443"
+      - "${BIND_ADDR:-0.0.0.0}:80:80"
+      - "${BIND_ADDR:-0.0.0.0}:443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
@@ -80,6 +94,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SETUID
+      - SETGID
     networks:
       - signage
     logging:
@@ -151,6 +178,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:
@@ -166,8 +202,17 @@ services:
     image: containrrr/watchtower:latest
     container_name: watchtower
     restart: unless-stopped
+    # ABGESCHALTET, ausser man will es ausdruecklich:
+    #     docker compose --profile auto-update up -d
+    #
+    # WARUM: Watchtower braucht den Docker-Socket, und wer den Socket hat, ist
+    # faktisch root auf dem Pi - auf demselben Geraet, das den Zabbix-Token
+    # haelt. Dafuer bekommt man automatische Image-Updates, die auch mal eine
+    # laufende Wand kaputtmachen. Fuer Updates gibt es ./scripts/update.sh:
+    # kontrolliert, nachvollziehbar, ohne Socket.
+    profiles: ["auto-update"]
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       # Run every night at 04:00 (cron: sec min hour dom mon dow).
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
@@ -180,6 +225,15 @@ services:
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
       - TZ=${TZ:-Europe/Berlin}
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:
@@ -198,7 +252,17 @@ services:
     image: zenika/alpine-chrome:124
     container_name: shotter
     restart: unless-stopped
-    user: "0:0"
+    # ABGESCHALTET, ausser man braucht ihn:
+    #     docker compose --profile screenshots up -d
+    #
+    # WARUM: Hier rendert Chromium FREMDE Webseiten - genau die Angriffsflaeche,
+    # gegen die Browser-Sandboxes gebaut sind. Ohne Ziele (Standard) laeuft der
+    # Dienst ohnehin leer; ihn trotzdem mitlaufen zu lassen waere ein
+    # unnoetiges Risiko auf dem Geraet, das eure Token haelt.
+    profiles: ["screenshots"]
+    # Nicht mehr als root: ein Ausbruch aus dem Renderer landet dann bei einem
+    # Benutzer ohne Rechte.
+    user: "${SHOTTER_UID:-1000}:${SHOTTER_GID:-1000}"
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -225,6 +289,15 @@ services:
       # - HTTP_PROXY=http://proxy.example.local:8080
     volumes:
       - ./shots:/shots
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:
@@ -244,6 +317,16 @@ services:
     image: python:3.12-alpine
     container_name: probe
     restart: unless-stopped
+    # Nicht als root. Die Sonde braucht nur Netz und Schreibrecht auf /state.
+    # Muss zum Eigentuemer von ./state passen - ./scripts/update.sh richtet das
+    # ein. Abweichende UID: RUN_UID/RUN_GID in .env.
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    # Dateisystem schreibgeschuetzt: geschrieben wird ausschliesslich in
+    # /state (eingehaengt) und /tmp (fluechtig). Ein manipuliertes Skript
+    # koennte sich damit nicht einmal selbst veraendern.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
     command: ["python", "/app/probe.py"]
     volumes:
       # Verzeichnisse mounten, nicht Einzeldateien - siehe cve-watcher.
@@ -281,6 +364,70 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - signage
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # M365 Service Health - die ECHTE Lage eures Tenants.
+  #
+  # Einen oeffentlichen Service-Health-Feed gibt es nicht mehr; was oeffentlich
+  # bleibt, meldet Aenderungen, keine Stoerungen. Tenant-Stoerungen stehen nur
+  # im Service Health Dashboard - erreichbar ueber die Graph-API.
+  #
+  # Genau EINE Berechtigung: ServiceHealth.Read.All (Anwendung). Damit kann
+  # dieser Dienst Dienstzustaende lesen und sonst nichts - keine Postfaecher,
+  # keine Benutzer, keine Dateien. Einrichtung: docs/M365.md
+  #
+  # Ohne Zugangsdaten bleibt der Dienst still, statt in einer Neustartschleife
+  # zu landen.
+  # ---------------------------------------------------------------------------
+  m365:
+    image: python:3.12-alpine
+    container_name: m365
+    restart: unless-stopped
+    command: ["python", "/app/health.py"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    env_file:
+      - config/secrets.env
+    volumes:
+      - ./services/m365:/app:ro
+      - ./state:/state
+      - ./nginx/certs:/certs:ro
+      - ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/host-ca-bundle.crt:ro
+    environment:
+      - M365_POLL_SECONDS=${M365_POLL_SECONDS:-300}
+      # Leer = alle Dienste. Sonst kommagetrennt, z. B.
+      # "Exchange Online,Microsoft Teams,SharePoint Online"
+      - M365_SERVICES=${M365_SERVICES:-}
+      - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
+      - TZ=${TZ:-Europe/Berlin}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,time,sys; f='/state/m365.json'; sys.exit(0 if not os.getenv('M365_TENANT_ID') or (os.path.exists(f) and time.time()-os.path.getmtime(f) < 3*int(os.getenv('M365_POLL_SECONDS','300'))) else 1)\""]
+      interval: 120s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:
@@ -299,6 +446,16 @@ services:
     image: python:3.12-alpine
     container_name: cve-watcher
     restart: unless-stopped
+    # Nicht als root. Der Watcher braucht nur Netz und Schreibrecht auf /state.
+    # Muss zum Eigentuemer von ./state passen - ./scripts/update.sh richtet das
+    # ein. Abweichende UID: RUN_UID/RUN_GID in .env.
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    # Dateisystem schreibgeschuetzt: geschrieben wird ausschliesslich in
+    # /state (eingehaengt) und /tmp (fluechtig). Ein manipuliertes Skript
+    # koennte sich damit nicht einmal selbst veraendern.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
     command: ["python", "/app/watch.py"]
     # Geheimnisse kommen direkt aus der zentralen Datei in den Container.
     # docker compose selbst liest nur ./.env - ohne env_file kaeme die
@@ -336,6 +493,15 @@ services:
       # ergaenzen. Das Host-Buendel steht zuerst: es enthaelt die Proxy-CA.
       - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
+    # --- Haertung -------------------------------------------------------
+    # no-new-privileges: ein Prozess im Container kann seine Rechte nicht mehr
+    # ueber setuid erhoehen - schliesst den haeufigsten Ausbruchspfad.
+    # cap_drop ALL: keine Linux-Capabilities. Was gebraucht wird, steht
+    # darunter ausdruecklich in cap_add - alles andere hat hier nichts zu tun.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - signage
     logging:

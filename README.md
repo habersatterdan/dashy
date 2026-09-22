@@ -28,6 +28,9 @@ Prüft Container, alle Wandseiten, die Datenquellen, **die Sicherheit** und das
 System — mit Ampel am Ende und dem jeweils nächsten Schritt bei jedem Befund.
 Das ist auch das, was man anhängt, wenn man um Hilfe bittet.
 
+> **Microsoft 365: [`docs/M365.md`](docs/M365.md)** — die echte Tenant-Lage über
+> die Graph-API, mit genau **einer** Berechtigung (`ServiceHealth.Read.All`).
+>
 > **Sicherheit: [`docs/SICHERHEIT.md`](docs/SICHERHEIT.md)** — was geschützt ist,
 > was ihr entscheiden müsst (vor allem: der Zabbix-Token braucht eine
 > **Nur-Lese-Rolle**), und was das System bewusst *nicht* leistet.
@@ -62,6 +65,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
 | **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |
+| **Microsoft 365 anbinden** (echte Tenant-Lage) | `config/secrets.env` → [`docs/M365.md`](docs/M365.md) | `./scripts/update.sh` |
 | **Eine Weboberfläche einbetten** (Grafana, PRTG, CheckMK …) | `config/endpoints.env` → `EMBED1_SLUG` + `EMBED1_URL` | `./scripts/update.sh` |
 | **Produkte für CVE-Meldungen wählen** | `config/watchlist.txt` | `docker compose restart cve-watcher` |
 | **Zeitzone, Intervalle, DNS-Krücken** | `.env` | `./scripts/update.sh` |

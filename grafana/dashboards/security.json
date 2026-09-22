@@ -349,12 +349,167 @@
       }
     },
     {
-      "type": "table",
-      "title": "Offene Schwachstellen mit Bezug zu uns",
+      "type": "stat",
+      "title": "Microsoft 365",
       "id": 5,
       "gridPos": {
         "x": 0,
         "y": 5,
+        "w": 7,
+        "h": 5
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "sonde"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "sonde"
+          },
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://nginx/data/m365.json",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "summary",
+          "columns": [
+            {
+              "selector": "ok",
+              "text": "OK",
+              "type": "number"
+            },
+            {
+              "selector": "warn",
+              "text": "Beeintraechtigt",
+              "type": "number"
+            },
+            {
+              "selector": "crit",
+              "text": "Gestoert",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "description": "Aus der Graph-API - die echte Lage EURES Tenants, nicht der oeffentliche Aenderungsfeed.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "value_and_name",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "M365 - laufende Vorfaelle",
+      "id": 6,
+      "gridPos": {
+        "x": 7,
+        "y": 5,
+        "w": 7,
+        "h": 5
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "sonde"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "sonde"
+          },
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://nginx/data/m365.json",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "issues",
+          "columns": [
+            {
+              "selector": "service",
+              "text": "Dienst",
+              "type": "string"
+            },
+            {
+              "selector": "title",
+              "text": "Vorfall",
+              "type": "string"
+            },
+            {
+              "selector": "classification",
+              "text": "Art",
+              "type": "string"
+            },
+            {
+              "selector": "startDateTime",
+              "text": "Seit",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "description": "Nur unerledigte. Behobene interessieren auf einer Wand nicht.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Offene Schwachstellen mit Bezug zu uns",
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 10,
         "w": 14,
         "h": 10
       },
@@ -431,10 +586,10 @@
     {
       "type": "timeseries",
       "title": "Problem-Aufkommen (7 Tage)",
-      "id": 6,
+      "id": 8,
       "gridPos": {
         "x": 14,
-        "y": 5,
+        "y": 10,
         "w": 10,
         "h": 10
       },
@@ -506,10 +661,10 @@
     {
       "type": "state-timeline",
       "title": "Patchstand der Server",
-      "id": 7,
+      "id": 9,
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 20,
         "w": 12,
         "h": 7
       },
@@ -593,10 +748,10 @@
     {
       "type": "timeseries",
       "title": "Firewall - abgewiesene Verbindungen",
-      "id": 8,
+      "id": 10,
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 20,
         "w": 12,
         "h": 7
       },

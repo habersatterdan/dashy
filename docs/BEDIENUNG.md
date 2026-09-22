@@ -237,6 +237,7 @@ Nichts davon muss jemand bedienen.
 | Betriebslage | `https://<pi>/lage/` |
 | Sicherheitsnachrichten | `https://<pi>/news/` |
 | Wochenrückblick | `https://<pi>/woche/` |
+| Grafana | `https://<pi>/grafana/` |
 | Anbieterstatus | `https://<pi>/stoerungen/` |
 | Alert-Wand | `https://<pi>/wall/` |
 | Grafana | `https://<pi>/grafana/` |

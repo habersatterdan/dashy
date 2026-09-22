@@ -144,6 +144,30 @@ if [ -f nginx/conf.d/extra/zabbix-api.conf ]; then
   esac
 fi
 
+# 4b. Riskante Dienste duerfen nicht ungefragt mitlaufen.
+if docker compose ps --services --filter status=running 2>/dev/null | grep -qx watchtower; then
+  warn "Watchtower laeuft - er hat den Docker-Socket und damit Root auf dem Pi"
+  tipp "Fuer Updates genuegt ./scripts/update.sh. Abschalten: docker compose stop watchtower"
+else
+  ok "Watchtower laeuft nicht (kein Docker-Socket im Spiel)"
+fi
+if docker compose ps --services --filter status=running 2>/dev/null | grep -qx shotter; then
+  warn "Shotter laeuft - Chromium rendert dort fremde Webseiten"
+  tipp "Nur mit vertrauenswuerdigen SHOT_TARGETS betreiben"
+else
+  ok "Shotter laeuft nicht"
+fi
+
+# 4c. M365 - wenn eingerichtet, muss es auch liefern.
+if grep -qE '^M365_TENANT_ID=.+' config/secrets.env 2>/dev/null; then
+  if curl -sk -m 12 https://127.0.0.1/data/m365.json >/dev/null 2>&1; then
+    ok "M365 Service Health liefert Daten"
+  else
+    bad "M365 ist eingerichtet, liefert aber nichts"
+    tipp "docker compose exec m365 python /app/health.py --test"
+  fi
+fi
+
 # 5. HTTP darf nur auf HTTPS umlenken, nichts ausliefern.
 code="$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1/lage/ 2>/dev/null)"
 case "${code}" in

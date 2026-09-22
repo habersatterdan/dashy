@@ -34,6 +34,26 @@ Anmeldedaten.
 
 ---
 
+## Härtung der Container
+
+| Maßnahme | Wirkung |
+|---|---|
+| `no-new-privileges` überall | ein Prozess kann seine Rechte nicht per setuid erhöhen |
+| `cap_drop: ALL` überall | keine Linux-Capabilities; Nginx bekommt genau drei zurück |
+| Sonde, CVE-Watcher, M365 als **Nicht-root** | ein Fehler dort ist kein Root-Fehler |
+| dieselben Dienste **read-only** | geschrieben wird nur nach `/state` und `/tmp` |
+| `watchtower` **abgeschaltet** | er braucht den Docker-Socket = Root auf dem Pi |
+| `shotter` **abgeschaltet** | Chromium rendert dort fremde Seiten |
+| nur Nginx hat offene Ports | alles andere ist von außen nicht erreichbar |
+| `BIND_ADDR` in `.env` | Nginx an genau eine Adresse binden, wenn der Pi mehrere hat |
+
+> **Warum Watchtower aus ist:** Wer den Docker-Socket hat, ist faktisch root auf
+> dem Pi — auf demselben Gerät, das den Zabbix-Token und das M365-Secret hält.
+> Dafür bekäme man automatische Image-Updates, die auch mal eine laufende Wand
+> zerlegen. Für Updates gibt es `./scripts/update.sh`: kontrolliert,
+> nachvollziehbar, ohne Socket. Wer ihn trotzdem will:
+> `docker compose --profile auto-update up -d`.
+
 ## Was der Pi nach außen anbietet
 
 | Port | Dienst | Zugriff |
@@ -115,20 +135,23 @@ vertretbar, erzeugt aber bei jedem Aufruf eine Warnung. Besser: ein Zertifikat
 eurer internen PKI (Anleitung in der README). `status.sh` warnt 30 Tage vor
 Ablauf.
 
-### 5. Bevor ihr Microsoft 365 „richtig" anbindet
+### 5. Microsoft 365 — prüft die Berechtigung
 
-Es gibt **keinen öffentlichen Service-Health-Feed** mehr. Echte Tenant-Störungen
-liefert nur die Graph-API — und die braucht eine App-Registrierung mit
-Client-Secret.
+Der Dienst `m365` liest die echte Tenant-Lage über die Graph-API — er ist
+eingerichtet und wartet nur auf eure Zugangsdaten. Prüft **vor** dem
+Produktivgang in Entra, dass wirklich **nur** `ServiceHealth.Read.All`
+(Anwendungsberechtigung) eingetragen ist. Das bei der Registrierung
+automatisch vergebene `User.Read` gehört entfernt.
 
-Wenn ihr das wollt, ist das eine bewusste Entscheidung:
-- Berechtigung **`ServiceHealth.Read.All`** (Application), sonst nichts
-- Secret mit Ablaufdatum, in `config/secrets.env`
-- Der Abruf läuft im Container, nie im Browser
+Schritt für Schritt: [`docs/M365.md`](M365.md).
 
-**Sag Bescheid, wenn ihr das anbinden wollt** — dann baue ich es mit genau
-dieser einen Berechtigung. Ohne App-Registrierung bleibt es beim öffentlichen
-Änderungs-Feed, und die Karte heißt ehrlich „M365 Änderungen".
+Damit kann der Dienst Dienstzustände lesen und sonst nichts — keine
+Postfächer, keine Benutzer, keine Dateien. Das Secret verlässt den Container
+nie; in `/data/m365.json` stehen ausschließlich Zustände.
+
+**Ablaufdatum des Client-Secrets in den Kalender.** Läuft es ab, bleibt die
+Karte leer und der Grund (`AADSTS7000215`) steht nur im Log. `status.sh` meldet
+es, sobald M365 eingerichtet ist, aber keine Daten liefert.
 
 ---
 
@@ -146,8 +169,9 @@ Ehrlichkeit ist hier wichtiger als eine lange Featureliste:
   Wandseiten. Das ist Absicht (eine Wand hat keine Anmeldung) und der Grund für
   Punkt 2 oben.
 - **Der Screenshot-Dienst ist ein Browser.** `shotter` rendert fremde Seiten mit
-  Chromium. Er ist standardmäßig **ohne Ziele** konfiguriert. Setzt dort nur
-  Adressen ein, denen ihr vertraut.
+  Chromium — genau die Angriffsfläche, gegen die Browser-Sandboxes gebaut sind.
+  Er startet deshalb **gar nicht mehr mit**, sondern nur auf Wunsch:
+  `docker compose --profile screenshots up -d`. Und nicht mehr als `root`.
 
 ---
 
@@ -165,6 +189,8 @@ Ehrlichkeit ist hier wichtiger als eine lange Featureliste:
 - [ ] `./scripts/backup.sh` läuft nachts, und eine Sicherung wurde **einmal
       zurückgespielt** — eine ungeprüfte Sicherung ist keine
 - [ ] `git status` zeigt keine Zugangsdaten als Änderung
+- [ ] M365-App hat **nur** `ServiceHealth.Read.All`, Secret-Ablauf im Kalender
+- [ ] `watchtower` und `shotter` laufen **nicht** (prüft `status.sh`)
 
 ---
 
