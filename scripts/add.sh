@@ -231,6 +231,59 @@ add_grafana(){
   pruefe_url "${pfad}"
 }
 
+# --- Eigene Wandseite fuer eine Zabbix-Hostgruppe ----------------------------
+add_gruppe(){
+  echo "${B}Eigene Wandseite fuer eine Zabbix-Hostgruppe${D}"
+  echo "  Daraus entsteht ein fertiges Grafana-Dashboard - Verfuegbarkeit,"
+  echo "  Probleme, CPU, Arbeitsspeicher, Speicherplatz und Antwortzeit,"
+  echo "  nur fuer diese Gruppe. Kein Klicken in Grafana noetig."
+  echo
+  local gruppe name sek uid
+  gruppe="$(frage 'Name der Hostgruppe genau wie in Zabbix')"
+  [ -z "${gruppe}" ] && { fehler "Nichts eingegeben."; return 1; }
+
+  # Gegen Zabbix pruefen, BEVOR wir eine Seite bauen, die leer bliebe.
+  if [ -f nginx/conf.d/extra/zabbix-api.conf ]; then
+    local antwort
+    antwort="$(curl -sk -m 15 -X POST https://127.0.0.1/api/zabbix \
+      -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"method\":\"hostgroup.get\",\"params\":{\"output\":[\"name\"]},\"id\":1}" 2>/dev/null)"
+    case "${antwort}" in
+      *"\"${gruppe}\""*) ok "Hostgruppe in Zabbix gefunden" ;;
+      *'"result"'*)
+        warn "Diese Hostgruppe meldet Zabbix nicht."
+        echo "         Vorhandene Gruppen:"
+        echo "${antwort}" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | sort | head -15 | sed 's/^/           /'
+        local w; w="$(frage 'Trotzdem anlegen? (j/N)')"
+        case "${w}" in j|J|y|Y) : ;; *) return 1 ;; esac ;;
+      *) warn "Zabbix nicht erreichbar - lege die Seite ungeprueft an." ;;
+    esac
+  fi
+
+  name="$(frage "Name auf der Wand [${gruppe}]")"; name="${name:-${gruppe}}"
+  sek="$(frage 'Standzeit in Sekunden [45]')"; sek="${sek:-45}"
+
+  sicherstellen config/gruppen.txt
+  printf '%s | %s | %s\n' "${name}" "${gruppe}" "${sek}" >> config/gruppen.txt
+  ok "in config/gruppen.txt eingetragen"
+
+  ./scripts/build-dashboards.py >/dev/null 2>&1 && ok "Dashboard erzeugt" \
+    || { fehler "Erzeugen fehlgeschlagen"; return 1; }
+
+  uid="noc-$(echo "${name}" | tr 'A-Z' 'a-z' \
+        | sed 's/ä/ae/g; s/ö/oe/g; s/ü/ue/g; s/ß/ss/g' \
+        | sed 's/[^a-z0-9]\+/-/g; s/^-//; s/-$//')"
+  sicherstellen config/pages.txt
+  printf '%-17s | /grafana/d/%s/?kiosk&refresh=30s | %s\n' "${name}" "${uid}" "${sek}" >> config/pages.txt
+  ok "in config/pages.txt eingetragen"
+  anwenden
+  echo
+  pruefe_url "/grafana/d/${uid}/"
+  echo
+  echo "  Grafana liest neue Dashboards innerhalb von 30 Sekunden ein."
+  echo "  Bleibt die Seite leer: ./scripts/check-grafana.sh"
+}
+
 # --- Uebersicht --------------------------------------------------------------
 zeige_liste(){
   echo "${B}Was die Wand derzeit zeigt${D}  (config/pages.txt)"
@@ -239,6 +292,10 @@ zeige_liste(){
   else
     warn "config/pages.txt fehlt - mit ./scripts/add.sh anlegen."
   fi
+  echo
+  echo "${B}Eigene Zabbix-Seiten${D}  (config/gruppen.txt)"
+  [ -f config/gruppen.txt ] && grep -vE '^\s*(#|$)' config/gruppen.txt | sed 's/^/  /' \
+    || echo "  (keine - anlegen mit ./scripts/add.sh gruppe)"
   echo
   echo "${B}Nachrichtenquellen${D}  (config/news.txt)"
   [ -f config/news.txt ] && grep -vE '^\s*(#|$)' config/news.txt | sed 's/^/  /' \
@@ -256,11 +313,12 @@ if [ -z "${art}" ]; then
   echo "  2) Interne Weboberflaeche (Grafana, PRTG, CheckMK, Wiki ...)"
   echo "  3) Nachrichtenquelle (RSS/Atom)"
   echo "  4) Grafana-Dashboard von diesem Pi"
-  echo "  5) Nur anzeigen, was schon drin ist"
+  echo "  5) Eigene Wandseite fuer eine Zabbix-Hostgruppe (empfohlen)"
+  echo "  6) Nur anzeigen, was schon drin ist"
   echo
   case "$(frage 'Auswahl')" in
     1) art=zabbix ;; 2) art=website ;; 3) art=feed ;;
-    4) art=grafana ;; 5) art=liste ;;
+    4) art=grafana ;; 5) art=gruppe ;; 6) art=liste ;;
     *) fehler "Unbekannte Auswahl."; exit 1 ;;
   esac
 fi
@@ -271,8 +329,10 @@ case "${art}" in
   website) add_website ;;
   feed)    add_feed ;;
   grafana) add_grafana ;;
+  gruppe)  add_gruppe ;;
   liste)   zeige_liste; exit 0 ;;
-  *) fehler "Unbekannt: ${art}"; echo "  zabbix | website | feed | grafana | liste"; exit 1 ;;
+  *) fehler "Unbekannt: ${art}"
+     echo "  zabbix | website | feed | grafana | gruppe | liste"; exit 1 ;;
 esac
 
 echo

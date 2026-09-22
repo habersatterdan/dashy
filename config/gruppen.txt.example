@@ -1,0 +1,23 @@
+# =============================================================================
+# EIGENE ZABBIX-SEITEN - eine je Hostgruppe
+# -----------------------------------------------------------------------------
+# Eine Zeile pro Wandseite:   Anzeigename | Zabbix-Hostgruppe | Sekunden
+#
+# Daraus baut ./scripts/build-dashboards.py je ein vollstaendiges
+# Grafana-Dashboard: Verfuegbarkeit, offene Probleme, CPU, Arbeitsspeicher,
+# Speicherplatz und Antwortzeit - nur fuer diese Gruppe.
+#
+# Die Hostgruppe muss so heissen wie in Zabbix unter "Data collection ->
+# Host groups". Regulaere Ausdruecke gehen auch:  /Server.*Produktiv/
+#
+# Kopieren:  cp config/gruppen.txt.example config/gruppen.txt
+# Danach:    ./scripts/update.sh
+#
+# Bequemer geht es mit:  ./scripts/add.sh gruppe
+# =============================================================================
+
+# Anzeigename      | Zabbix-Hostgruppe        | Sekunden
+# Rechenzentrum    | RZ Produktiv             | 45
+# Netzwerk         | /Netzwerk.*/             | 45
+# Virtualisierung  | VMware                   | 45
+# Domaenencontroller | Active Directory       | 30

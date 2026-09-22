@@ -34,3 +34,4 @@ config/cve-feeds.txt
 # Gerenderte Grafana-Datenquelle enthaelt den Zabbix-Token
 grafana/provisioning/datasources/zabbix.yml
 config/news.txt
+config/gruppen.txt

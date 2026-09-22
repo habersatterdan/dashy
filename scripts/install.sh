@@ -31,6 +31,7 @@ echo "==> [3b/6] Creating central config (URLs + credentials) and rendering"
 [ -f config/sources.txt ]   || cp config/sources.txt.example config/sources.txt
 [ -f config/cve-feeds.txt ] || cp config/cve-feeds.txt.example config/cve-feeds.txt
 [ -f config/news.txt ]      || cp config/news.txt.example config/news.txt
+[ -f config/gruppen.txt ]   || cp config/gruppen.txt.example config/gruppen.txt
 python3 ./scripts/render-config.py || true
 python3 ./scripts/build-dashboards.py || true
 

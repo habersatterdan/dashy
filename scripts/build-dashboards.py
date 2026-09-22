@@ -19,6 +19,7 @@ die Vorgaben der offiziellen Zabbix-Templates. Weichen eure ab, hier zentral
 aendern statt in 20 Panels.
 """
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -407,6 +408,96 @@ def dash_security():
     return dashboard("noc-security", "NOC · Security & Trends", p, refresh="1m", zeit="now-7d")
 
 
+# =============================================================================
+# EIGENE SEITEN JE HOSTGRUPPE
+#
+# Daraus entsteht mit einer Zeile in config/gruppen.txt eine vollstaendige
+# Wandseite fuer eine Zabbix-Hostgruppe. Der Zuschnitt ist bewusst immer
+# derselbe: Wer zwischen "Rechenzentrum" und "Netzwerk" wechselt, soll nicht
+# umdenken muessen - dieselbe Zahl steht an derselben Stelle.
+# =============================================================================
+def dash_gruppe(anzeige, gruppe, uid):
+    # Steht schon ein /.../ da, ist es ein regulaerer Ausdruck des Nutzers.
+    # Sonst genau diesen Gruppennamen treffen - Sonderzeichen maskiert, aber
+    # NICHT das Leerzeichen: "RZ\ Produktiv" findet in Zabbix nichts.
+    g = gruppe if gruppe.startswith("/") else f"/^{re.escape(gruppe).replace(chr(92) + ' ', ' ')}$/"
+    p = []
+
+    p.append(panel("stat", "Erreichbar", 0, 0, 5, 5,
+        zbx_metrik(g, "/.*/", I_UP, [{"def": {"name": "percentil"}, "params": []}]),
+        unit="percent", dezimal=1,
+        thresholds=schwellen((0, CRIT), (95, WARN), (99.5, GOOD)),
+        opts={"graphMode": "none", "colorMode": "value", "textMode": "auto",
+              "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}}))
+
+    p.append(panel("stat", "Ausfaelle", 5, 0, 5, 5,
+        zbx_probleme(g, schwere=[4, 5]), unit="none",
+        thresholds=schwellen((1, CRIT), base=GOOD),
+        opts={"graphMode": "none", "colorMode": "background", "textMode": "value",
+              "reduceOptions": {"calcs": ["count"], "fields": "", "values": False}}))
+
+    p.append(panel("stat", "Warnungen", 10, 0, 5, 5,
+        zbx_probleme(g, schwere=[2, 3]), unit="none",
+        thresholds=schwellen((1, WARN), base=GOOD),
+        opts={"graphMode": "none", "colorMode": "value", "textMode": "value",
+              "reduceOptions": {"calcs": ["count"], "fields": "", "values": False}}))
+
+    p.append(panel("timeseries", "Antwortzeit", 15, 0, 9, 5,
+        zbx_metrik(g, "/.*/", I_PING, [{"def": {"name": "top"}, "params": ["6", "avg"]}]),
+        unit="s", dezimal=3,
+        opts={"legend": {"showLegend": False}, "tooltip": {"mode": "multi"}},
+        desc="Latenz steigt, bevor etwas stehenbleibt."))
+
+    p.append(panel("table", "Offene Probleme", 0, 5, 14, 10,
+        zbx_probleme(g, limit=12),
+        opts={"showHeader": True, "cellHeight": "lg",
+              "sortBy": [{"displayName": "Severity", "desc": True}]}))
+
+    p.append(panel("state-timeline", "Verfuegbarkeit (24 h)", 14, 5, 10, 10,
+        zbx_metrik(g, "/.*/", I_UP),
+        unit="none", thresholds=schwellen((1, GOOD), base=CRIT),
+        mappings=[{"type": "value", "options": {"0": {"text": "aus", "color": CRIT},
+                                                "1": {"text": "laeuft", "color": GOOD}}}],
+        opts={"mergeValues": True, "showValue": "never", "rowHeight": 0.9,
+              "legend": {"showLegend": False}, "alignValue": "center"}))
+
+    for i, (titel, item, warn, ernst, krit) in enumerate([
+            ("CPU", I_CPU, 70, 85, 95),
+            ("Arbeitsspeicher", I_MEM, 80, 90, 96),
+            ("Speicherplatz", I_FS, 80, 90, 95)]):
+        p.append(panel("bargauge", titel, i * 8, 15, 8, 8,
+            zbx_metrik(g, "/.*/", item, [{"def": {"name": "top"}, "params": ["7", "avg"]}]),
+            unit="percent", maxv=100, minv=0,
+            thresholds=schwellen((warn, WARN), (ernst, SERIOUS), (krit, CRIT), base=GOOD),
+            opts={"displayMode": "gradient", "orientation": "horizontal",
+                  "showUnfilled": True, "valueMode": "color",
+                  "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}}))
+
+    return dashboard(uid, f"NOC · {anzeige}", p, refresh="30s", zeit="now-24h")
+
+
+def lade_gruppen():
+    """config/gruppen.txt einlesen:  Anzeigename | Hostgruppe | Sekunden"""
+    datei = ROOT / "config" / "gruppen.txt"
+    if not datei.exists():
+        return []
+    out = []
+    for zeile in datei.read_text(encoding="utf-8").splitlines():
+        z = zeile.strip()
+        if not z or z.startswith("#"):
+            continue
+        teile = [t.strip() for t in z.split("|")]
+        if len(teile) < 2 or not teile[1]:
+            continue
+        # Kennung aus dem Namen: klein, nur Buchstaben/Ziffern/Bindestrich -
+        # sie steht spaeter in der URL der Wandseite.
+        uid = "noc-" + re.sub(r"[^a-z0-9]+", "-",
+                              teile[0].lower().replace("ä", "ae").replace("ö", "oe")
+                              .replace("ü", "ue").replace("ß", "ss")).strip("-")
+        out.append((teile[0], teile[1], uid))
+    return out
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, bauen in [("lagebild", dash_lagebild), ("infra", dash_infra),
@@ -415,7 +506,28 @@ def main():
         ziel = OUT / f"{name}.json"
         ziel.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
         print(f"  {ziel.relative_to(ROOT)}  ({len(d['panels'])} Panels)")
+    # Eigene Seiten je Hostgruppe aus config/gruppen.txt
+    eigene = lade_gruppen()
+    for anzeige, gruppe, uid in eigene:
+        d = dash_gruppe(anzeige, gruppe, uid)
+        ziel = OUT / f"{uid}.json"
+        ziel.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
+        print(f"  {ziel.relative_to(ROOT)}  ({len(d['panels'])} Panels, "
+              f"Gruppe: {gruppe})")
+
+    # Verwaiste Dateien entfernen: wer eine Zeile aus gruppen.txt loescht,
+    # soll die Seite auch los sein - sonst bleibt sie in Grafana stehen.
+    bekannt = {"lagebild.json", "infra.json", "security.json"} | {f"{u}.json" for _, _, u in eigene}
+    for f in OUT.glob("*.json"):
+        if f.name not in bekannt:
+            f.unlink()
+            print(f"  ENTFERNT {f.relative_to(ROOT)}  (keine Zeile mehr in gruppen.txt)")
+
     print("Fertig. Grafana liest sie beim naechsten Start (oder nach 30 s) ein.")
+    if eigene:
+        print("\nIn config/pages.txt eintragen (oder ./scripts/add.sh gruppe nutzen):")
+        for anzeige, _, uid in eigene:
+            print(f"  {anzeige:<17} | /grafana/d/{uid}/?kiosk&refresh=30s | 45")
 
 
 if __name__ == "__main__":

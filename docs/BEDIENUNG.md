@@ -59,6 +59,38 @@ das noch fehlt.
 
 ---
 
+## Aufgabe 1b — Eine eigene Wandseite für eine Zabbix-Hostgruppe *(der beste Weg)*
+
+Statt ein Zabbix-Dashboard einzubetten, lässt sich eine **komplette Wandseite
+für eine Hostgruppe erzeugen** — mit Verfügbarkeit, offenen Problemen, CPU,
+Arbeitsspeicher, Speicherplatz und Antwortzeit. Kein Klicken in Zabbix, kein
+Klicken in Grafana.
+
+```bash
+./scripts/add.sh gruppe
+```
+
+Gefragt wird nur nach dem **Namen der Hostgruppe** (genau wie in Zabbix unter
+*Data collection → Host groups*). Das Skript prüft die Gruppe **gegen euer
+Zabbix, bevor** es etwas anlegt — und zeigt die vorhandenen Gruppen an, wenn
+der Name nicht passt.
+
+Warum das der bessere Weg ist:
+
+| | Zabbix-Dashboard einbetten | Eigene Seite je Gruppe |
+|---|---|---|
+| Anmeldung nötig | ja (guest-Freigabe) | **nein** |
+| Lesbar aus 5 m | wie in Zabbix gebaut | **für die Wand entworfen** |
+| Neue Gruppe ergänzen | in Zabbix bauen, freigeben, einbetten | **ein Befehl** |
+| Überlebt ein Update | ja | ja (`config/gruppen.txt`) |
+
+Alle Seiten haben **denselben Zuschnitt**: Wer zwischen „Rechenzentrum" und
+„Netzwerk" wechselt, muss nicht umdenken — dieselbe Zahl steht an derselben
+Stelle.
+
+Entfernen: Zeile aus `config/gruppen.txt` löschen, `./scripts/update.sh` —
+die Seite verschwindet auch aus Grafana.
+
 ## Aufgabe 2 — Eine Weboberfläche einbinden
 
 Grafana, PRTG, CheckMK, vCenter, ein Wiki:
@@ -238,6 +270,7 @@ Nichts davon muss jemand bedienen.
 | Sicherheitsnachrichten | `https://<pi>/news/` |
 | Wochenrückblick | `https://<pi>/woche/` |
 | Grafana | `https://<pi>/grafana/` |
+| Eigene Gruppenseite | `https://<pi>/grafana/d/noc-<name>/?kiosk` |
 | Anbieterstatus | `https://<pi>/stoerungen/` |
 | Alert-Wand | `https://<pi>/wall/` |
 | Grafana | `https://<pi>/grafana/` |

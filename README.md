@@ -60,6 +60,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
 | **Spalten auf `/news/`** festlegen | `config/news.txt` | `docker compose restart nginx` |
+| **Eigene Wandseite je Zabbix-Hostgruppe** | `config/gruppen.txt` | `./scripts/update.sh` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
 | **Prüfen, ob alles läuft und sicher steht** | — | `./scripts/status.sh` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
@@ -529,6 +530,29 @@ geändert werden dürfen sie trotzdem — nur überlebt das kein `build-dashboar
 | 22 | Problem-Aufkommen 7 Tage | Wird es besser oder schlechter? |
 | 23 | Patchstand der Server | Zeigt, *ob* überhaupt gepatcht wird |
 | 24 | Firewall — abgewiesene Verbindungen | Der Grundpegel ist normal; die Abweichung zählt |
+
+### Eigene Wandseite je Hostgruppe — ein Befehl
+
+```bash
+./scripts/add.sh gruppe
+```
+
+Eine Zeile in `config/gruppen.txt` (`Anzeigename | Zabbix-Hostgruppe | Sekunden`)
+erzeugt ein **vollständiges Dashboard** für diese Gruppe: Verfügbarkeit,
+Ausfälle, Warnungen, Antwortzeit, Problemtabelle, Verfügbarkeits-Zeitband und
+CPU/RAM/Speicher als Top-7.
+
+```
+Rechenzentrum   | RZ Produktiv  | 45
+Netzwerk        | /Netzwerk.*/  | 45
+```
+
+Reguläre Ausdrücke sind erlaubt. Das Skript prüft die Hostgruppe **gegen euer
+Zabbix, bevor** es etwas anlegt. Eine gelöschte Zeile entfernt die Seite auch
+aus Grafana — sonst bliebe sie dort stehen.
+
+Der Zuschnitt ist bewusst bei allen Gruppen gleich: Wer zwischen zwei Seiten
+wechselt, soll nicht umdenken müssen.
 
 ### Alarmumschaltung — die Wand reagiert
 
