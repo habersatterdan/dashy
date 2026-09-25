@@ -225,6 +225,52 @@ docker compose up -d --force-recreate cve-watcher
 
 ---
 
+## Schritt 10 — Altlasten aus `config/` entfernen
+
+Die Dateien unter `config/` sind gitignored. Genau deshalb überleben sie jedes
+Update — **aber eben auch die Beispielwerte, mit denen ihr angefangen habt.**
+Auf der Wand sieht das aus wie ein Ausfall: „example.local nicht erreichbar"
+ist kein Fehler, sondern eine Karteileiche.
+
+```bash
+cd ~/dashy
+./scripts/aufraeumen.sh
+```
+
+Zeigt nur an, ändert nichts. Geprüft wird:
+
+| Was | Gefunden wird |
+|---|---|
+| `probes.txt` | Beispielziele auf `example.local` |
+| `endpoints.env` | Adressen, die noch auf `example.local` zeigen |
+| `pages.txt` | Wandseiten, die nicht mehr laden |
+| alle Listen | doppelte Einträge |
+| `gruppen.txt` | Hostgruppen, die Zabbix gar nicht kennt |
+| `connect.ini` | Anbindungen, die keinen Wert liefern |
+| überall | Sicherungen älter als 30 Tage |
+
+Übernehmen:
+
+```bash
+./scripts/aufraeumen.sh --anwenden
+./scripts/update.sh
+```
+
+**Es wird nichts gelöscht.** Beanstandete Zeilen werden mit `#` stillgelegt,
+mit der Begründung darüber, und die Datei vorher nach `<name>.bak` gesichert.
+Falsch getroffen? Zurück mit einem Handgriff:
+
+```bash
+cp config/probes.txt.bak config/probes.txt
+```
+
+Drei Punkte bleiben bewusst von Hand: **Adressen**, **Wandseiten** und
+**Hostgruppen**. Dort steckt eine Entscheidung drin — ein leerer Wert in
+`endpoints.env` bedeutet „diesen Platz weglassen" und ist etwas anderes als ein
+falscher Wert. Das kann kein Skript für euch entscheiden.
+
+---
+
 ## Kurzfassung zum Abtippen
 
 Wenn alles schon eingerichtet ist und ihr nur den neuen Stand wollt:
@@ -235,6 +281,7 @@ for f in config/*.example; do [ -f "${f%.example}" ] || cp "$f" "${f%.example}";
 chmod 600 config/secrets.env
 ./scripts/update.sh --env-ergaenzen
 ./scripts/update.sh
+./scripts/aufraeumen.sh
 ./scripts/status.sh
 ```
 

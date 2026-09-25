@@ -69,6 +69,7 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Eine beliebige Anwendung anbinden** (LOGINventory, Jira, Ticketsystem …) | `config/connect.ini` → besser: `./scripts/add.sh anwendung` | `docker compose restart connect` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |
 | **Prüfen, ob alles läuft und sicher steht** | — | `./scripts/status.sh` |
+| **Altlasten und Beispielwerte aus `config/` entfernen** | — | `./scripts/aufraeumen.sh` |
 | **Eigene Systeme überwachen** (erreichbar? wie schnell? Zertifikat?) | `config/probes.txt` | `docker compose restart probe` |
 | **Adressen hinterlegen** (Zabbix, Grafana, vCenter, Firewall …) | `config/endpoints.env` | `./scripts/update.sh` |
 | **Zugangsdaten hinterlegen** (API-Token, Webhook-URLs) | `config/secrets.env` | `./scripts/update.sh` |
@@ -540,6 +541,41 @@ geändert werden dürfen sie trotzdem — nur überlebt das kein `build-dashboar
 | 22 | Problem-Aufkommen 7 Tage | Wird es besser oder schlechter? |
 | 23 | Patchstand der Server | Zeigt, *ob* überhaupt gepatcht wird |
 | 24 | Firewall — abgewiesene Verbindungen | Der Grundpegel ist normal; die Abweichung zählt |
+
+### Wie Grafana an die Zabbix-Daten kommt
+
+Der Weg ist kürzer, als viele vermuten — **es wird nichts kopiert, importiert
+oder synchronisiert.** Grafana fragt bei jedem Bildaufbau live bei Zabbix nach:
+
+```
+Browser  ──►  nginx auf dem Pi  ──►  Grafana (Container)  ──►  Zabbix-API
+                                            │                  (euer Server)
+                                            └── Plugin: alexanderzobnin-zabbix-app
+```
+
+Drei Teile, die das möglich machen — alle schon eingerichtet:
+
+1. **Das Zabbix-Plugin in Grafana** (`alexanderzobnin-zabbix-app`) spricht die
+   Zabbix-API und übersetzt sie in etwas, das Grafana zeichnen kann.
+2. **Die Datenquelle** `grafana/provisioning/datasources/zabbix.yml` — wird aus
+   `ZABBIX_URL` und `ZABBIX_API_TOKEN` erzeugt. Der Token steht nur dort, nie
+   im Dashboard.
+3. **Die Dashboards** unter `grafana/dashboards/*.json` — erzeugt von
+   `./scripts/build-dashboards.py`. Sie enthalten **keine Daten**, nur Fragen:
+   „zeige CPU aller Hosts der Gruppe X".
+
+Deshalb ist ein Dashboard hier **Code, keine Klickarbeit**: Die JSON-Datei
+beschreibt die Frage, Grafana holt die Antwort bei jedem Aufruf neu.
+
+Prüfen, ob die Kette steht:
+
+```bash
+./scripts/check-grafana.sh
+```
+
+Es prüft der Reihe nach Container, Erreichbarkeit, beide Plugins, die
+Datenquelle und die Dashboard-Dateien — an der ersten Stelle, die klemmt,
+bleibt es stehen.
 
 ### Zwei Wege, Zabbix auf die Wand zu bringen — und was sie unterscheidet
 

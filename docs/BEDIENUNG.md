@@ -239,6 +239,14 @@ docker compose restart connect
 ## Aufgabe 4 — Etwas von der Wand entfernen
 
 ```bash
+./scripts/aufraeumen.sh            # was gehört hier nicht mehr hin?
+./scripts/aufraeumen.sh --anwenden # stilllegen (löscht nichts, sichert vorher)
+```
+
+Findet Beispielwerte, tote Seiten, doppelte Zeilen und Hostgruppen, die es in
+Zabbix nicht gibt. Von Hand geht es weiterhin so:
+
+```bash
 ./scripts/add.sh liste          # zeigt alles mit Nummern
 nano config/pages.txt           # Zeile löschen oder # davorsetzen
 docker compose restart nginx
