@@ -201,6 +201,42 @@ else
   ok "keine alten Sicherungen"
 fi
 
+# --- 8. Container, die nur noch aus Gewohnheit laufen -------------------------
+# Watchtower und Shotter sind in Profile ausgelagert - "docker compose up -d"
+# startet sie nicht mehr. Wer sie VOR dieser Aenderung gestartet hat, bei dem
+# laufen sie aber weiter: compose stoppt nichts, was nicht zum aktiven Profil
+# gehoert. Das faellt nie von selbst auf, und beide sind sicherheitsrelevant.
+echo
+echo "${B}8. Dienste ausserhalb der Profile${D}"
+lauf="$(docker compose ps --services --filter status=running 2>/dev/null)"
+verwaist=""
+for d in watchtower shotter; do
+  echo "${lauf}" | grep -qx "${d}" && verwaist="${verwaist} ${d}"
+done
+if [ -n "${verwaist}" ]; then
+  FUNDE=$((FUNDE + 1))
+  fund "laeuft, gehoert aber nicht zum Standardbetrieb:${verwaist}"
+  case "${verwaist}" in
+    *watchtower*) info "watchtower hat den Docker-Socket - das ist Root auf dem Pi." 
+                  info "Fuer Updates genuegt ./scripts/update.sh." ;;
+  esac
+  case "${verwaist}" in
+    *shotter*) info "shotter rendert fremde Webseiten mit Chromium." ;;
+  esac
+  if [ "${ANWENDEN}" = "1" ]; then
+    # shellcheck disable=SC2086
+    docker compose stop ${verwaist} >/dev/null 2>&1 && ok "gestoppt:${verwaist}" \
+      || warn "Stoppen fehlgeschlagen - von Hand: docker compose stop${verwaist}"
+    # shellcheck disable=SC2086
+    docker compose rm -f ${verwaist} >/dev/null 2>&1
+    info "Wieder einschalten, falls doch gebraucht:"
+    info "  docker compose --profile auto-update up -d    (watchtower)"
+    info "  docker compose --profile screenshots up -d    (shotter)"
+  fi
+else
+  ok "nur die Dienste des Standardbetriebs laufen"
+fi
+
 # --- Fazit --------------------------------------------------------------------
 echo
 if [ "${FUNDE}" = "0" ]; then

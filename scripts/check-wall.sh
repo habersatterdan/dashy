@@ -16,7 +16,7 @@ FAILED=0
 code(){ curl -sk -m 15 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 
 echo "== Grundgeruest"
-for path in /health /signage/ /lage/ /stoerungen/ /wall/ /config/pages.txt /data/probe.json /woche/ /news/ /kennzahlen/ /grafana/api/health; do
+for path in /health /signage/ /lage/ /stoerungen/ /wall/ /config/pages.txt /data/probe.json /woche/ /news/ /kennzahlen/ /infoboard/ /grafana/api/health; do
   c="$(code "${BASE}${path}")"
   case "${c}" in
     200) echo "  ${G}OK${D}     ${path}" ;;

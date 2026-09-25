@@ -211,6 +211,154 @@ add_feed(){
   pruefe_url "/feeds/${slug}"
 }
 
+# --- Aus dem Katalog waehlen -------------------------------------------------
+# WARUM: "Welche Quellen gibt es denn Sinnvolles?" ist die Frage, an der die
+# meisten haengenbleiben - nicht an der Bedienung. Der Katalog beantwortet sie
+# mit einer Liste, aus der man eine Nummer tippt. Geprueft wird trotzdem: eine
+# umgezogene Feed-Adresse faellt hier auf, nicht auf der Wand.
+add_katalog(){
+  echo "${B}Aus dem Katalog waehlen${D}"
+  sicherstellen config/katalog.txt
+  if [ ! -f config/katalog.txt ]; then
+    fehler "config/katalog.txt fehlt und liess sich nicht anlegen."
+    return 1
+  fi
+
+  # Einlesen in Felder. Kommentare und unvollstaendige Zeilen fallen raus.
+  local -a k_art k_name k_slug k_url k_bem
+  local n=0 zeile
+  while IFS='|' read -r art name slug url bem; do
+    art="$(echo "${art}"  | tr -d '[:space:]')"
+    case "${art}" in ''|\#*) continue ;; esac
+    name="$(echo "${name}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    slug="$(echo "${slug}" | tr -d '[:space:]')"
+    url="$(echo  "${url}"  | tr -d '[:space:]')"
+    bem="$(echo  "${bem}"  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -z "${url}" ] && continue
+    n=$((n + 1))
+    k_art[n]="${art}"; k_name[n]="${name}"; k_slug[n]="${slug}"
+    k_url[n]="${url}"; k_bem[n]="${bem}"
+  done < config/katalog.txt
+
+  if [ "${n}" = "0" ]; then
+    fehler "Der Katalog enthaelt keine gueltige Zeile."
+    echo "         Aufbau:  Art | Anzeigename | Kurzname | Adresse | Bemerkung"
+    return 1
+  fi
+
+  local i schon
+  for i in $(seq 1 "${n}"); do
+    # Schon eingetragen? Dann nicht zum zweiten Mal anbieten.
+    schon=""
+    grep -qE "^FEED[0-9]_SLUG=${k_slug[i]}$|^EMBED[0-9]_SLUG=${k_slug[i]}$" \
+      config/endpoints.env 2>/dev/null && schon=" ${G}[bereits drin]${D}"
+    printf "  %2d) %-18s %s%s\n" "${i}" "${k_name[i]}" "${k_bem[i]}" "${schon}"
+  done
+  echo
+  echo "  Mehrere gehen: 1 3 7"
+  local wahl; wahl="$(frage 'Nummer(n)')"
+  [ -z "${wahl}" ] && { warn "Nichts gewaehlt."; return 0; }
+
+  local nr gewaehlt=0
+  for nr in ${wahl}; do
+    case "${nr}" in
+      ''|*[!0-9]*) fehler "'${nr}' ist keine Nummer."; continue ;;
+    esac
+    if [ "${nr}" -lt 1 ] || [ "${nr}" -gt "${n}" ]; then
+      fehler "${nr} steht nicht im Katalog (1 bis ${n})."; continue
+    fi
+    echo
+    echo "  ${B}${k_name[nr]}${D}"
+    if [ "${k_art[nr]}" = "website" ]; then
+      katalog_website "${k_name[nr]}" "${k_slug[nr]}" "${k_url[nr]}" && gewaehlt=$((gewaehlt+1))
+    else
+      katalog_feed "${k_name[nr]}" "${k_slug[nr]}" "${k_url[nr]}" && gewaehlt=$((gewaehlt+1))
+    fi
+  done
+
+  [ "${gewaehlt}" = "0" ] && return 1
+  ./scripts/render-config.py >/dev/null 2>&1 && ok "Proxy erzeugt"
+  anwenden
+  echo
+  echo "  ${gewaehlt} Quelle(n) uebernommen. Ansehen:"
+  echo "    Nachrichten   https://$(hostname)/news/"
+  echo "    Anbieterstatus https://$(hostname)/stoerungen/"
+}
+
+# Eine Feed-Zeile aus dem Katalog eintragen - mit Pruefung vorher.
+katalog_feed(){
+  local name="$1" slug="$2" url="$3" frei n kopf
+  if grep -qE "^FEED[0-9]_SLUG=${slug}$" config/endpoints.env 2>/dev/null; then
+    warn "'${slug}' ist bereits eingetragen - uebersprungen."
+    return 1
+  fi
+  echo "    Pruefe die Quelle ..."
+  kopf="$(curl -s -m 20 -A 'NOCSignage/1.0' "${url}" 2>/dev/null | head -c 400)"
+  case "${kopf}" in
+    *'<item'*|*'<entry'*) ok "gueltiger Feed mit Eintraegen" ;;
+    *'<rss'*|*'<feed'*)   warn "gueltiges XML, derzeit ohne Eintraege (bei Statusfeeds normal)" ;;
+    '') fehler "keine Antwort. Adresse umgezogen, oder der Proxy blockt."
+        echo "           ${url}"
+        return 1 ;;
+    *)  fehler "kein Feed. Die Antwort beginnt mit: ${kopf:0:60}"
+        return 1 ;;
+  esac
+
+  sicherstellen config/endpoints.env
+  frei=""
+  for n in 1 2 3 4 5 6; do
+    grep -qE "^FEED${n}_URL=.+" config/endpoints.env || { frei="${n}"; break; }
+  done
+  if [ -z "${frei}" ]; then
+    fehler "Alle sechs Feed-Plaetze belegt."
+    echo "           Einen in config/endpoints.env freimachen (FEEDn_URL= leeren)."
+    return 1
+  fi
+  sed -i "/^FEED${frei}_SLUG=/d; /^FEED${frei}_URL=/d" config/endpoints.env
+  printf 'FEED%s_SLUG=%s\nFEED%s_URL=%s\n' "${frei}" "${slug}" "${frei}" "${url}" >> config/endpoints.env
+  ok "als FEED${frei} eingetragen"
+
+  # Sicherheitsmeldungen gehoeren auf /news/, Anbieterstatus auf /stoerungen/.
+  # Die Entscheidung nimmt der Katalog dem Nutzer ab - aendern geht jederzeit
+  # in config/news.txt bzw. config/sources.txt.
+  case "${slug}" in
+    bsi|cisa|fortinet|heise-sec|golem-sec|bleeping)
+      sicherstellen config/news.txt
+      grep -q "| ${slug}$" config/news.txt 2>/dev/null \
+        || printf '%-17s | %s\n' "${name}" "${slug}" >> config/news.txt
+      ok "auf der Nachrichtenwand /news/" ;;
+    *)
+      sicherstellen config/sources.txt
+      grep -q "| ${slug}$" config/sources.txt 2>/dev/null \
+        || printf '%-17s | %s\n' "${name}" "${slug}" >> config/sources.txt
+      ok "beim Anbieterstatus /stoerungen/" ;;
+  esac
+  return 0
+}
+
+# Eine Website-Zeile aus dem Katalog einbetten.
+katalog_website(){
+  local name="$1" slug="$2" url="$3" frei n
+  if grep -qE "^EMBED[0-9]_SLUG=${slug}$" config/endpoints.env 2>/dev/null; then
+    warn "'${slug}' ist bereits eingebettet - uebersprungen."
+    return 1
+  fi
+  sicherstellen config/endpoints.env
+  frei=""
+  for n in 1 2 3 4; do
+    grep -qE "^EMBED${n}_URL=.+" config/endpoints.env || { frei="${n}"; break; }
+  done
+  [ -z "${frei}" ] && { fehler "Alle vier Einbett-Plaetze belegt."; return 1; }
+  sed -i "/^EMBED${frei}_SLUG=/d; /^EMBED${frei}_URL=/d" config/endpoints.env
+  printf 'EMBED%s_SLUG=%s\nEMBED%s_URL=%s\n' "${frei}" "${slug}" "${frei}" "${url}" >> config/endpoints.env
+  ok "als EMBED${frei} eingetragen"
+  sicherstellen config/pages.txt
+  grep -q "| /${slug}/ " config/pages.txt 2>/dev/null \
+    || printf '%-17s | /%s/ | 45\n' "${name}" "${slug}" >> config/pages.txt
+  ok "in config/pages.txt eingetragen"
+  return 0
+}
+
 # --- Beliebige Anwendung (REST) ----------------------------------------------
 # WARUM: LOGINventory, Jira, ein Ticketsystem - alle koennen JSON. Der
 # Universalanschluss macht daraus eine Kachel, ohne dass jemand Code schreibt.
@@ -479,11 +627,13 @@ if [ -z "${art}" ]; then
   echo "  4) Grafana-Dashboard von diesem Pi"
   echo "  5) Eigene Wandseite fuer eine Zabbix-Hostgruppe (empfohlen)"
   echo "  6) Beliebige Anwendung mit REST-Schnittstelle (LOGINventory, Jira ...)"
-  echo "  7) Nur anzeigen, was schon drin ist"
+  echo "  7) Aus dem Katalog waehlen (erprobte Quellen, nur Nummer tippen)"
+  echo "  8) Nur anzeigen, was schon drin ist"
   echo
   case "$(frage 'Auswahl')" in
     1) art=zabbix ;; 2) art=website ;; 3) art=feed ;;
-    4) art=grafana ;; 5) art=gruppe ;; 6) art=anwendung ;; 7) art=liste ;;
+    4) art=grafana ;; 5) art=gruppe ;; 6) art=anwendung ;;
+    7) art=katalog ;; 8) art=liste ;;
     *) fehler "Unbekannte Auswahl."; exit 1 ;;
   esac
 fi
@@ -496,9 +646,10 @@ case "${art}" in
   grafana) add_grafana ;;
   gruppe)  add_gruppe ;;
   anwendung|app) add_anwendung ;;
+  katalog) add_katalog ;;
   liste)   zeige_liste; exit 0 ;;
   *) fehler "Unbekannt: ${art}"
-     echo "  zabbix | website | feed | grafana | gruppe | anwendung | liste"; exit 1 ;;
+     echo "  zabbix | website | feed | grafana | gruppe | anwendung | katalog | liste"; exit 1 ;;
 esac
 
 echo

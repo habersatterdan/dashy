@@ -65,6 +65,8 @@ gitignored und überleben jedes Update — im Quelltext ändert man nichts.
 | **Seiten der Wand festlegen** (Reihenfolge, Standzeit, eigene Dashboards) | `config/pages.txt` | `docker compose restart nginx` |
 | **Anbieter auf `/stoerungen/`** festlegen | `config/sources.txt` | `docker compose restart nginx` |
 | **Spalten auf `/news/`** festlegen | `config/news.txt` | `docker compose restart nginx` |
+| **Bereitschaft, Wartungsfenster, Notfallnummern** | `config/infoboard.txt` | `docker compose restart nginx` |
+| **Erprobte Quellen auswählen statt suchen** | `config/katalog.txt` → `./scripts/add.sh katalog` | — |
 | **Eigene Wandseite je Zabbix-Hostgruppe** | `config/gruppen.txt` | `./scripts/update.sh` |
 | **Eine beliebige Anwendung anbinden** (LOGINventory, Jira, Ticketsystem …) | `config/connect.ini` → besser: `./scripts/add.sh anwendung` | `docker compose restart connect` |
 | **Grafana-Panels ändern** | `scripts/build-dashboards.py` | `./scripts/build-dashboards.py` |

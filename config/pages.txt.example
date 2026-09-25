@@ -20,6 +20,7 @@ Sicherheit        | /wall/         | 30
 Nachrichten       | /news/         | 40
 Wochenrückblick   | /woche/        | 45
 Kennzahlen        | /kennzahlen/   | 40
+Infoboard         | /infoboard/    | 35
 # /kennzahlen/ zeigt alles, was ueber config/connect.ini angebunden ist
 # (LOGINventory, Jira, Ticketsystem ...). Ohne Anbindung erklaert die Seite,
 # wie man eine hinzufuegt:  ./scripts/add.sh anwendung

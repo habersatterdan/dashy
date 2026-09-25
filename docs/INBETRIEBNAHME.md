@@ -248,6 +248,7 @@ Zeigt nur an, ändert nichts. Geprüft wird:
 | `gruppen.txt` | Hostgruppen, die Zabbix gar nicht kennt |
 | `connect.ini` | Anbindungen, die keinen Wert liefern |
 | überall | Sicherungen älter als 30 Tage |
+| Docker | Dienste, die laufen, aber nicht zum Standardbetrieb gehören |
 
 Übernehmen:
 

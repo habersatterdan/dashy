@@ -43,3 +43,5 @@ grafana/dashboards/noc-*.json
 config/news.txt
 config/gruppen.txt
 config/connect.ini
+config/katalog.txt
+config/infoboard.txt

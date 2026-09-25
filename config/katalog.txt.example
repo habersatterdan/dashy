@@ -1,0 +1,57 @@
+# =============================================================================
+# KATALOG - fertige Quellen zum Auswaehlen
+# -----------------------------------------------------------------------------
+# WOFUER: "Welche Feeds gibt es denn ueberhaupt Sinnvolles?" ist die Frage, an
+# der die meisten haengenbleiben. Hier stehen erprobte Quellen mit Adresse -
+# auswaehlen statt suchen:
+#
+#     ./scripts/add.sh katalog
+#
+# Das Skript zeigt diese Liste nummeriert, PRUEFT die gewaehlte Adresse sofort
+# und traegt sie erst danach ein. Eine tote Quelle landet nie auf der Wand.
+#
+# AUFBAU EINER ZEILE:   Art | Anzeigename | Kurzname | Adresse | Bemerkung
+#   Art = feed      RSS/Atom-Quelle (Nachrichten oder Anbieterstatus)
+#   Art = website   Weboberflaeche, die eingebettet wird
+#
+# EIGENE ZEILEN: einfach anhaengen. Diese Datei ist gitignored - eure
+# Ergaenzungen ueberleben jedes Update. Die Vorlage liegt als
+# config/katalog.txt.example daneben.
+#
+# HINWEIS ZU DEN ADRESSEN: Anbieter aendern ihre Feed-Adressen ohne Ankuendigung.
+# Darum prueft add.sh jede Adresse beim Hinzufuegen. Schlaegt eine fehl, ist
+# nicht euer System kaputt - die Quelle ist umgezogen.
+# =============================================================================
+
+# --- Anbieterstatus: "liegt es an uns oder an denen?" -------------------------
+# Das ist die haeufigste Frage im Servicedesk. Diese Quellen beantworten sie,
+# bevor jemand ein Ticket aufmacht.
+feed | Microsoft 365     | m365       | https://www.microsoft.com/releasecommunications/api/v2/m365/rss | Aenderungen und Stoerungen an M365
+feed | Microsoft Azure   | azure      | https://azure.status.microsoft/en-us/status/feed/               | Azure-Dienste weltweit
+feed | GitHub            | github     | https://www.githubstatus.com/history.rss                        | falls ihr CI/CD dort habt
+feed | Atlassian         | atlassian  | https://status.atlassian.com/history.rss                        | Jira und Confluence Cloud
+feed | Cloudflare        | cloudflare | https://www.cloudflarestatus.com/history.rss                    | DNS und CDN
+feed | Zoom              | zoom       | https://status.zoom.us/history.rss                              | Konferenzen
+feed | Slack             | slack      | https://status.slack.com/feed/rss                               | Chat
+feed | AWS               | aws        | https://status.aws.amazon.com/rss/all.rss                       | nur falls ihr dort etwas betreibt
+
+# --- Sicherheitsmeldungen der Hersteller --------------------------------------
+# Diese gehoeren auf die Wand, weil sie euch direkt betreffen koennen.
+feed | Fortinet PSIRT    | fortinet   | https://filestore.fortinet.com/fortiguard/rss/ir.xml            | Firewall-Schwachstellen
+feed | BSI CERT-Bund     | bsi        | https://wid.cert-bund.de/content/public/securityAdvisory/rss    | amtliche Warnungen, deutsch
+feed | CISA Advisories   | cisa       | https://www.cisa.gov/cybersecurity-advisories/all.xml           | inkl. aktiv ausgenutzter Luecken
+
+# --- Fachnachrichten ----------------------------------------------------------
+# Kein Muss. Sinnvoll, wenn die Wand auch in einem Flur haengt, an dem
+# Nicht-Techniker vorbeikommen - dann ist sie nicht nur rote Zahlen.
+feed | heise Security    | heise-sec  | https://www.heise.de/security/rss/news.rdf                      | deutsch, taeglich
+feed | Golem Security    | golem-sec  | https://rss.golem.de/rss.php?tp=sec&feed=RSS2.0                 | deutsch
+feed | BleepingComputer  | bleeping   | https://www.bleepingcomputer.com/feed/                          | englisch, sehr schnell
+
+# --- Eigene Weboberflaechen ---------------------------------------------------
+# Vorlagen: Adresse anpassen, dann sind es gueltige Zeilen. Auskommentiert,
+# damit niemand versehentlich eine fremde Adresse einbindet.
+# website | Backup (Veeam)   | veeam    | https://veeam.firma.local          | Erfolgsquote der letzten Nacht
+# website | Firewall         | fw       | https://firewall.firma.local       | Durchsatz und Sperrungen
+# website | Ticketsystem     | tickets  | https://jira.firma.local/secure/Dashboard.jspa | offene Tickets
+# website | Wiki             | wiki     | https://wiki.firma.local           | Notfallhandbuch griffbereit

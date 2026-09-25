@@ -29,7 +29,8 @@ Was möchtest du zur Wand hinzufügen?
   4) Grafana-Dashboard von diesem Pi
   5) Eigene Wandseite für eine Zabbix-Hostgruppe (empfohlen)
   6) Beliebige Anwendung mit REST-Schnittstelle (LOGINventory, Jira ...)
-  7) Nur anzeigen, was schon drin ist
+  7) Aus dem Katalog wählen (erprobte Quellen, nur Nummer tippen)
+  8) Nur anzeigen, was schon drin ist
 ```
 
 ---
@@ -130,6 +131,65 @@ URL aus der Adresszeile) und ein **Kurzname** für den Pfad.
 
 > Immer den **vollen Namen** verwenden: `prtg.firma.local`, nicht `prtg`.
 > Kurznamen lösen im Container nicht auf — das Skript warnt dich.
+
+---
+
+## Aufgabe 0 — Der schnellste Weg: aus dem Katalog wählen
+
+```bash
+./scripts/add.sh katalog
+```
+
+Zeigt eine nummerierte Liste erprobter Quellen — Microsoft 365, Azure, GitHub,
+Atlassian, Cloudflare, Fortinet, BSI, CISA, heise Security und weitere. Ihr
+tippt eine Nummer (oder mehrere: `1 3 9`), der Rest passiert von selbst:
+Adresse prüfen, eintragen, auf die richtige Wandseite legen, nginx neu laden.
+
+**Warum es das gibt:** Die Frage ist selten „wie trage ich das ein", sondern
+„welche Quellen gibt es überhaupt Sinnvolles". Der Katalog beantwortet sie.
+
+Schon Eingetragenes ist als `[bereits drin]` markiert und wird übersprungen.
+Eine umgezogene Feed-Adresse fällt beim Prüfen auf, nicht später auf der Wand.
+
+**Eigene Einträge** hängt ihr einfach an `config/katalog.txt` an:
+
+```
+feed | Unser Hoster | hoster | https://status.hoster.de/history.rss | Rechenzentrum
+```
+
+Die Datei ist gitignored — eure Ergänzungen überleben jedes Update.
+
+---
+
+## Aufgabe 0b — Das Infoboard pflegen *(Bereitschaft, Wartung, Nummern)*
+
+Zabbix kennt eure Server. Es weiß aber nicht, **wer diese Woche Bereitschaft
+hat**, dass Freitag ein Wartungsfenster liegt und welche Nummer man nachts
+wählt. Genau das sucht jemand, der um 3 Uhr vor der Wand steht.
+
+```bash
+nano config/infoboard.txt
+docker compose restart nginx
+```
+
+Vier Arten von Zeilen:
+
+```
+bereitschaft | diese Woche | Max Mustermann | +49 170 0000000
+wartung      | 2026-10-02 20:00 | 2026-10-02 23:30 | Patchtag Windows | Team Infra
+nummer       | Servicedesk intern | 1234 | Mo-Fr 7-17 Uhr
+hinweis      | Umzug Serverraum B ab 15.10. | 2026-10-20
+```
+
+Was die Seite von selbst tut:
+
+- **Ein laufendes Wartungsfenster wird hervorgehoben.** Das erklärt die Hälfte
+  aller Alarme, ohne dass jemand nachfragt.
+- **Vergangene Fenster verschwinden**, ebenso abgelaufene Hinweise (Datum in
+  der zweiten Spalte).
+- **Ein unlesbares Datum wird angezeigt**, nicht verschluckt — sonst wäre ein
+  Wartungsfenster wegen eines Tippfehlers unsichtbar, und das fiele niemandem
+  auf.
 
 ---
 
@@ -384,6 +444,7 @@ Nichts davon muss jemand bedienen.
 | Betriebslage | `https://<pi>/lage/` |
 | Sicherheitsnachrichten | `https://<pi>/news/` |
 | Wochenrückblick | `https://<pi>/woche/` |
+| Infoboard (Bereitschaft, Wartung) | `https://<pi>/infoboard/` |
 | Kennzahlen (angebundene Anwendungen) | `https://<pi>/kennzahlen/` |
 | Grafana | `https://<pi>/grafana/` |
 | Eigene Gruppenseite | `https://<pi>/grafana/d/noc-<name>/?kiosk` |

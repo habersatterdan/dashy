@@ -1,0 +1,42 @@
+# =============================================================================
+# INFOBOARD - das, was keine Maschine weiss
+# -----------------------------------------------------------------------------
+# Zabbix kennt eure Server. Es weiss aber nicht, WER diese Woche Bereitschaft
+# hat, dass Freitag ein Wartungsfenster liegt und welche Nummer man nachts
+# waehlt. Genau das steht hier - und genau das sucht jemand, der um 3 Uhr vor
+# der Wand steht.
+#
+# Kopieren:  cp config/infoboard.txt.example config/infoboard.txt
+# Danach:    docker compose restart nginx   (kein Rebuild noetig)
+#
+# Aufbau:  Art | Feld | Feld | ...
+# Zeilen mit # davor sind aus.
+# =============================================================================
+
+# --- Bereitschaft -------------------------------------------------------------
+#   bereitschaft | Zeitraum | Name | Telefon
+# Mehrere Zeilen sind erlaubt (1. Ebene, 2. Ebene). Die erste steht oben.
+bereitschaft | diese Woche  | Max Mustermann    | +49 170 0000000
+bereitschaft | Rufbereitschaft 2. Ebene | Erika Musterfrau | +49 170 0000001
+
+# --- Wartungsfenster ----------------------------------------------------------
+#   wartung | Beginn | Ende | Was | Wer
+# Datum als  JJJJ-MM-TT HH:MM  (24 Stunden). Laeuft ein Fenster GERADE, hebt
+# die Seite es hervor - das erklaert die Haelfte aller Alarme von selbst.
+# Vergangene Fenster verschwinden automatisch.
+wartung | 2026-10-02 20:00 | 2026-10-02 23:30 | Patchtag Windows Server | Team Infrastruktur
+wartung | 2026-10-09 18:00 | 2026-10-09 22:00 | Firmware Switche Standort Nord | Team Netzwerk
+
+# --- Wichtige Nummern ---------------------------------------------------------
+#   nummer | Wofuer | Nummer | Bemerkung
+nummer | Servicedesk intern   | 1234              | Mo-Fr 7-17 Uhr
+nummer | Rechenzentrum Pforte | +49 8250 000-0    | rund um die Uhr
+nummer | Stoerungsannahme ISP | +49 800 0000000   | Kundennummer 12345
+nummer | Zutritt Serverraum   | Hausmeisterdienst | Schluessel Kasten B
+
+# --- Hinweise -----------------------------------------------------------------
+#   hinweis | Text | bis JJJJ-MM-TT (optional, danach verschwindet er)
+# Fuer alles, was das Team gerade wissen muss. Ohne Datum bleibt der Hinweis
+# stehen, bis ihn jemand entfernt - das ist Absicht, aber pflegt ihn.
+hinweis | Umzug Serverraum B ab 15.10. - Details im Wiki | 2026-10-20
+hinweis | Bei Stoerung zuerst /lage/ pruefen, dann Ticket

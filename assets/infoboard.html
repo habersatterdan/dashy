@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infoboard</title>
+<style>
+  :root{
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8a8a80;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+    --rule:#2e2e2c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--plane); color:var(--ink); overflow:hidden; cursor:none;
+       font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+       font-variant-numeric:tabular-nums; display:flex; flex-direction:column}
+
+  header{display:flex; align-items:baseline; gap:22px; padding:16px 30px 12px;
+         border-bottom:1px solid var(--rule)}
+  h1{font-size:24px; font-weight:700; letter-spacing:.14em; text-transform:uppercase}
+  #sub{color:var(--ink-3); font-size:13px; letter-spacing:.06em}
+  #clock{margin-left:auto; font-size:36px; font-weight:600; line-height:1}
+
+  main{flex:1; min-height:0; display:grid; grid-template-columns:1.25fr 1fr;
+       gap:18px; padding:16px 30px 18px}
+  .spalte{min-height:0; display:flex; flex-direction:column; gap:14px; overflow:hidden}
+  h2{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+     color:var(--ink-3); margin-bottom:8px}
+
+  .karte{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+         border-left-width:6px; border-left-color:var(--rule); padding:12px 18px}
+
+  /* Bereitschaft: die wichtigste Zeile der Seite. Wer nachts hier steht,
+     sucht genau das - darum oben und in der groessten Schrift. */
+  .bereit{border-left-color:var(--good); display:flex; align-items:center; gap:18px}
+  .bereit .wer{font-size:30px; font-weight:700; line-height:1.15}
+  .bereit .wann{font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                color:var(--ink-3)}
+  .bereit .tel{margin-left:auto; font-size:30px; font-weight:700; color:var(--good);
+               white-space:nowrap}
+  .bereit.zweite .wer{font-size:21px}
+  .bereit.zweite .tel{font-size:21px; color:var(--ink-2)}
+
+  /* Wartungsfenster */
+  .wtg{border-left-color:var(--ink-3); display:flex; align-items:baseline; gap:16px;
+       padding:10px 18px; margin-bottom:8px}
+  .wtg .zeit{font-size:15px; color:var(--ink-2); white-space:nowrap; min-width:190px}
+  .wtg .was{font-size:18px; font-weight:600}
+  .wtg .wer{margin-left:auto; font-size:13px; color:var(--ink-3); white-space:nowrap}
+  .wtg .kennz{font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+              padding:2px 8px; border-radius:4px; white-space:nowrap}
+  /* Ein LAUFENDES Fenster erklaert die Haelfte aller Alarme. Darum hervorheben -
+     mit Wort und Farbe, nicht mit Farbe allein. */
+  .wtg.laeuft{border-left-color:var(--warning); background:#241f11}
+  .wtg.laeuft .kennz{background:var(--warning); color:#1a1a19; font-weight:700}
+  .wtg.laeuft .was{color:var(--warning)}
+  .wtg.heute{border-left-color:var(--serious)}
+  .wtg.heute .kennz{background:var(--serious); color:#1a1a19; font-weight:700}
+  .wtg.kommend .kennz{background:var(--surface-2); color:var(--ink-3)}
+
+  /* Nummern */
+  table{width:100%; border-collapse:collapse}
+  td{padding:7px 0; border-bottom:1px solid var(--rule); font-size:16px;
+     vertical-align:baseline}
+  tr:last-child td{border-bottom:none}
+  td.wofuer{color:var(--ink-2)}
+  td.nr{font-weight:700; white-space:nowrap; padding-left:14px}
+  td.bem{color:var(--ink-3); font-size:13px; text-align:right; padding-left:14px}
+
+  /* Hinweise */
+  .hw{border-left-color:var(--serious); font-size:17px; line-height:1.4;
+      padding:10px 18px; margin-bottom:8px}
+  .hw .bis{display:block; font-size:12px; color:var(--ink-3); margin-top:3px}
+
+  .leer{color:var(--ink-3); font-size:15px; line-height:1.5}
+  .leer code{color:var(--ink-2); background:var(--surface-2); padding:1px 6px; border-radius:4px}
+  footer{padding:8px 30px 14px; border-top:1px solid var(--rule);
+         color:var(--ink-3); font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Infoboard</h1>
+  <span id="sub">Bereitschaft · Wartung · Nummern</span>
+  <span id="clock">--:--</span>
+</header>
+<main>
+  <div class="spalte">
+    <div><h2>Bereitschaft</h2><div id="bereit"></div></div>
+    <div style="flex:1; min-height:0; overflow:hidden">
+      <h2>Wartungsfenster</h2><div id="wartung"></div>
+    </div>
+  </div>
+  <div class="spalte">
+    <div><h2>Wichtige Nummern</h2><div class="karte"><table id="nummern"></table></div></div>
+    <div style="flex:1; min-height:0; overflow:hidden">
+      <h2>Hinweise</h2><div id="hinweise"></div>
+    </div>
+  </div>
+</main>
+<footer><span id="stand"></span></footer>
+
+<script>
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+function uhr(){
+  const d = new Date();
+  document.getElementById("clock").textContent =
+    String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+
+// "2026-10-02 20:00" -> Date. Bewusst streng: was nicht passt, wird als Text
+// angezeigt statt stillschweigend verschluckt. Ein Wartungsfenster, das wegen
+// eines Tippfehlers unsichtbar wird, ist schlimmer als eines, das komisch
+// aussieht.
+function zeitpunkt(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s || "").trim());
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  return isNaN(d.getTime()) ? null : d;
+}
+const TAG = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+function zeitText(a, b){
+  const p = n => String(n).padStart(2, "0");
+  const d = `${TAG[a.getDay()]} ${p(a.getDate())}.${p(a.getMonth()+1)}.`;
+  const bis = (b && b.toDateString() === a.toDateString())
+    ? `${p(b.getHours())}:${p(b.getMinutes())}`
+    : (b ? `${TAG[b.getDay()]} ${p(b.getDate())}.${p(b.getMonth()+1)}. ${p(b.getHours())}:${p(b.getMinutes())}` : "offen");
+  return `${d} ${p(a.getHours())}:${p(a.getMinutes())} – ${bis}`;
+}
+
+function zerlege(text){
+  const raus = {bereitschaft:[], wartung:[], nummer:[], hinweis:[]};
+  for (const roh of text.split(/\r?\n/)){
+    const z = roh.trim();
+    if (!z || z.startsWith("#")) continue;
+    const f = z.split("|").map(x => x.trim());
+    const art = (f[0] || "").toLowerCase();
+    if (raus[art]) raus[art].push(f.slice(1));
+  }
+  return raus;
+}
+
+function zeichneBereit(zeilen){
+  const ziel = document.getElementById("bereit");
+  if (!zeilen.length){
+    ziel.innerHTML = '<div class="karte"><div class="leer">Keine Bereitschaft eingetragen.<br>' +
+      'Zeile in <code>config/infoboard.txt</code>: <code>bereitschaft | diese Woche | Name | Telefon</code></div></div>';
+    return;
+  }
+  ziel.innerHTML = zeilen.map((z, i) =>
+    '<div class="karte bereit' + (i ? " zweite" : "") + '" style="margin-bottom:8px">' +
+      '<div><div class="wann">' + esc(z[0]) + '</div>' +
+      '<div class="wer">' + esc(z[1]) + "</div></div>" +
+      '<div class="tel">' + esc(z[2] || "") + "</div></div>").join("");
+}
+
+function zeichneWartung(zeilen){
+  const ziel = document.getElementById("wartung");
+  const jetzt = new Date();
+  const eintraege = [];
+  for (const z of zeilen){
+    const a = zeitpunkt(z[0]), b = zeitpunkt(z[1]);
+    if (!a){
+      // Unlesbares Datum: anzeigen statt verstecken, damit der Tippfehler auffaellt.
+      eintraege.push({sort: 0, kaputt: true, roh: z});
+      continue;
+    }
+    const ende = b || new Date(a.getTime() + 3600000);
+    if (ende < jetzt) continue;                       // vorbei: weg
+    if (a - jetzt > 21 * 86400000) continue;          // weiter als 3 Wochen: noch nicht
+    const laeuft = a <= jetzt && jetzt <= ende;
+    const heute  = !laeuft && a.toDateString() === jetzt.toDateString();
+    eintraege.push({sort: a.getTime(), a, ende, laeuft, heute, roh: z});
+  }
+  if (!eintraege.length){
+    ziel.innerHTML = '<div class="karte"><div class="leer">Keine geplante Wartung in den nächsten drei Wochen.</div></div>';
+    return;
+  }
+  // Laufende zuerst, dann nach Beginn.
+  eintraege.sort((x, y) => (y.laeuft ? 1 : 0) - (x.laeuft ? 1 : 0) || x.sort - y.sort);
+  ziel.innerHTML = eintraege.slice(0, 7).map(e => {
+    if (e.kaputt){
+      return '<div class="karte wtg"><span class="kennz" style="background:var(--critical);color:#fff">Datum unlesbar</span>' +
+        '<span class="was">' + esc(e.roh[2] || e.roh.join(" | ")) + "</span>" +
+        '<span class="wer">erwartet: JJJJ-MM-TT HH:MM</span></div>';
+    }
+    const kl = e.laeuft ? "laeuft" : e.heute ? "heute" : "kommend";
+    const wort = e.laeuft ? "läuft gerade" : e.heute ? "heute" : "geplant";
+    return '<div class="karte wtg ' + kl + '">' +
+      '<span class="kennz">' + wort + "</span>" +
+      '<span class="zeit">' + zeitText(e.a, e.ende) + "</span>" +
+      '<span class="was">' + esc(e.roh[2] || "") + "</span>" +
+      '<span class="wer">' + esc(e.roh[3] || "") + "</span></div>";
+  }).join("");
+}
+
+function zeichneNummern(zeilen){
+  const ziel = document.getElementById("nummern");
+  if (!zeilen.length){
+    ziel.innerHTML = '<tr><td class="wofuer"><span class="leer">Keine Nummern eingetragen.</span></td></tr>';
+    return;
+  }
+  ziel.innerHTML = zeilen.slice(0, 9).map(z =>
+    "<tr><td class=\"wofuer\">" + esc(z[0]) + "</td>" +
+    '<td class="nr">' + esc(z[1] || "") + "</td>" +
+    '<td class="bem">' + esc(z[2] || "") + "</td></tr>").join("");
+}
+
+function zeichneHinweise(zeilen){
+  const ziel = document.getElementById("hinweise");
+  const heute = new Date(); heute.setHours(0, 0, 0, 0);
+  const gueltig = zeilen.filter(z => {
+    const bis = /^\d{4}-\d{2}-\d{2}$/.test(z[1] || "") ? new Date(z[1] + "T23:59") : null;
+    return !bis || bis >= heute;      // abgelaufene Hinweise verschwinden
+  });
+  if (!gueltig.length){
+    ziel.innerHTML = '<div class="karte"><div class="leer">Keine aktuellen Hinweise.</div></div>';
+    return;
+  }
+  ziel.innerHTML = gueltig.slice(0, 5).map(z =>
+    '<div class="karte hw">' + esc(z[0]) +
+    (z[1] ? '<span class="bis">gilt bis ' + esc(z[1]) + "</span>" : "") + "</div>").join("");
+}
+
+async function laden(){
+  let text;
+  try {
+    const r = await fetch("/config/infoboard.txt?t=" + Date.now(), {cache:"no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    text = await r.text();
+  } catch (e) {
+    document.getElementById("bereit").innerHTML =
+      '<div class="karte"><div class="leer">' +
+      '<code>config/infoboard.txt</code> ist nicht lesbar (' + esc(e.message) + ').<br>' +
+      'Anlegen: <code>cp config/infoboard.txt.example config/infoboard.txt</code><br>' +
+      'Danach: <code>docker compose restart nginx</code></div></div>';
+    document.getElementById("stand").textContent = "Keine Konfiguration geladen";
+    return;
+  }
+  const d = zerlege(text);
+  zeichneBereit(d.bereitschaft);
+  zeichneWartung(d.wartung);
+  zeichneNummern(d.nummer);
+  zeichneHinweise(d.hinweis);
+  document.getElementById("stand").textContent =
+    "Aus config/infoboard.txt · " + d.bereitschaft.length + " Bereitschaft, " +
+    d.wartung.length + " Wartungsfenster, " + d.nummer.length + " Nummern, " +
+    d.hinweis.length + " Hinweise";
+}
+
+uhr(); laden();
+setInterval(uhr, 10000);
+setInterval(laden, 120000);
+</script>
+</body>
+</html>
