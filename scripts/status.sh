@@ -69,8 +69,19 @@ print(d['ok'], d['warn'], d['crit'], d['total'])" "${probe}" 2>/dev/null)"
     warn "Sonde laeuft, aber keine Ziele konfiguriert"
     tipp "nano config/probes.txt   (dann: docker compose restart probe)"
   elif [ "${3:-0}" != "0" ] && [ "${1:-0}" = "0" ]; then
-    warn "Alle ${4} Ziele kritisch - meist ein Konfigurationsfehler, kein Ausfall"
-    tipp "docker compose exec probe python /app/probe.py --once"
+    # Der haeufigste Fall zuerst und beim Namen nennen: die Beispielziele aus
+    # der Vorlage stehen noch drin. "Konfigurationsfehler" waere richtig, aber
+    # nutzlos - hier ist genau bekannt, WAS zu tun ist.
+    if grep -qE '^[^#]*example\.local' config/probes.txt 2>/dev/null; then
+      n_bsp="$(grep -cE '^[^#]*example\.local' config/probes.txt)"
+      warn "Alle ${4} Ziele kritisch: ${n_bsp} Zeile(n) sind noch die Beispiele (example.local)"
+      tipp "nano config/probes.txt   - echte Namen eintragen, Rest mit # davor stilllegen"
+      tipp "Danach: docker compose restart probe"
+    else
+      warn "Alle ${4} Ziele kritisch - meist ein Konfigurationsfehler, kein Ausfall"
+      tipp "docker compose exec probe python /app/probe.py --once"
+      tipp "Alles 'Name does not resolve'? PROBE_DNS_SUFFIX in .env setzen"
+    fi
   else
     ok "Sonde: ${1} ok, ${2} Warnung, ${3} kritisch (von ${4})"
   fi
