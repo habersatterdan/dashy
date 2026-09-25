@@ -296,11 +296,26 @@ def durchlauf(conf):
 
 def main():
     conf = lade_config()
+
     if conf is None or not conf.sections():
-        log(f"{CONF_FILE} fehlt oder ist leer - nichts anzubinden. "
-            "Vorlage: config/connect.ini.example, bequemer: ./scripts/add.sh anwendung")
+        log(f"{CONF_FILE} fehlt oder enthaelt keinen Abschnitt - nichts "
+            "anzubinden. Anlegen mit: ./scripts/add.sh anwendung")
+        if "--test" in sys.argv:
+            return 0
+        # Trotzdem eine gueltige, leere Datei schreiben und den Zeitstempel
+        # weiter auffrischen. Zwei Gruende:
+        #   1. /kennzahlen/ bekommt ein leeres Dokument statt HTTP 404 und kann
+        #      erklaeren, wie man etwas hinzufuegt.
+        #   2. Der Healthcheck prueft, ob /state/connect.json frisch ist. Ohne
+        #      dieses Schreiben gilt ein korrekt arbeitender Dienst fuer immer
+        #      als "startet noch" - genau das ist passiert, weil die aus der
+        #      Vorlage kopierte ini-Datei existiert, aber nur Kommentare
+        #      enthaelt.
         while True:
-            time.sleep(3600)
+            schreibe([], [])
+            if "--once" in sys.argv:
+                return 0
+            time.sleep(INTERVAL)
 
     if "--test" in sys.argv:
         i = sys.argv.index("--test")

@@ -153,6 +153,8 @@ async function laden(){
   const fehler  = Array.isArray(d.errors) ? d.errors : [];
 
   if (!kacheln.length && !fehler.length){
+    // Der Dienst laeuft und schreibt - es ist nur nichts eingetragen. Das ist
+    // ein Zustand, kein Fehler, und die Seite sagt genau das.
     inhalt.innerHTML = hinweisLeer("Es ist noch keine Anwendung angebunden.");
   } else {
     // Gruppen in der Reihenfolge ihres ersten Auftretens - so bestimmt die

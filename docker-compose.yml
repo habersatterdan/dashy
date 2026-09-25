@@ -479,8 +479,13 @@ services:
       - CORP_CA_FILE=/etc/ssl/host-ca-bundle.crt:/certs/chain.crt
       - TZ=${TZ:-Europe/Berlin}
     healthcheck:
-      # Ohne connect.ini gibt es nichts zu tun - dann gilt der Dienst als gesund.
-      test: ["CMD-SHELL", "python -c \"import os,time,sys; c='/config/connect.ini'; f='/state/connect.json'; sys.exit(0 if not os.path.exists(c) or (os.path.exists(f) and time.time()-os.path.getmtime(f) < 3*int(os.getenv('CONNECT_POLL_SECONDS','300'))) else 1)\""]
+      # Der Dienst frischt /state/connect.json bei JEDEM Durchlauf auf - auch
+      # wenn nichts angebunden ist. Ist die Datei alt, haengt er wirklich.
+      # (Frueher wurde zusaetzlich geprueft, ob connect.ini existiert. Das war
+      # falsch: die aus der Vorlage kopierte ini existiert, enthaelt aber nur
+      # Kommentare - der Dienst schrieb nichts und galt fuer immer als
+      # "startet noch", obwohl er korrekt arbeitete.)
+      test: ["CMD-SHELL", "python -c \"import os,time,sys; f='/state/connect.json'; sys.exit(0 if os.path.exists(f) and time.time()-os.path.getmtime(f) < 3*int(os.getenv('CONNECT_POLL_SECONDS','300')) else 1)\""]
       interval: 120s
       timeout: 10s
       retries: 3
