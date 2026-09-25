@@ -541,6 +541,22 @@ geändert werden dürfen sie trotzdem — nur überlebt das kein `build-dashboar
 | 23 | Patchstand der Server | Zeigt, *ob* überhaupt gepatcht wird |
 | 24 | Firewall — abgewiesene Verbindungen | Der Grundpegel ist normal; die Abweichung zählt |
 
+### Zwei Wege, Zabbix auf die Wand zu bringen — und was sie unterscheidet
+
+Das wird regelmäßig verwechselt, darum ausdrücklich:
+
+| | **Weg 1: Zabbix direkt** | **Weg 2: Grafana** |
+|---|---|---|
+| Was man sieht | euer in Zabbix gebautes Dashboard, 1:1 | ein **neu gebautes** Dashboard aus denselben Zabbix-Daten |
+| Eintrag | `/zabbix/zabbix.php?action=dashboard.view&dashboardid=419&kiosk=1` | `/grafana/d/noc-<name>/?kiosk` |
+| Aufwand | in Zabbix mit `guest` teilen | eine Zeile in `config/gruppen.txt` |
+| Wofür | Spezialaufbauten, die es schon gibt | einheitliches Lagebild über alle Gruppen |
+
+**Ein Zabbix-Dashboard lässt sich nicht nach Grafana importieren.** Es gibt kein
+gemeinsames Format, und daran ändert auch kein Skript etwas. Grafana fragt
+stattdessen dieselbe Zabbix-Datenbank ab und zeichnet neu. Beide Wege dürfen
+nebeneinander auf der Wand laufen — sie beantworten verschiedene Fragen.
+
 ### Eigene Wandseite je Hostgruppe — ein Befehl
 
 ```bash

@@ -492,6 +492,43 @@ def dash_gruppe(anzeige, gruppe, uid):
     return dashboard(uid, f"NOC · {anzeige}", p, refresh="30s", zeit="now-24h")
 
 
+def dash_uebersicht(gruppen):
+    """EINE Seite fuer ALLE Hostgruppen.
+
+    WARUM ES DAS GIBT: Wer 24 Hostgruppen hat und je eine Wandseite baut,
+    sieht jede erst nach 18 Minuten wieder - das ist kein Lagebild mehr.
+    Diese Seite zeigt alle Gruppen nebeneinander: je eine Kachel mit der Zahl
+    der ernsten Probleme, gruen wenn nichts ansteht. Darunter die offenen
+    Probleme quer ueber alle Gruppen. Auf einen Blick sichtbar ist damit die
+    Frage, die zaehlt: WO brennt es gerade. Die Tiefe holt man sich danach
+    auf der Seite der betroffenen Gruppe.
+    """
+    p = []
+    # Vier Kacheln je Reihe: bei 24 Gruppen sechs Reihen, aus fuenf Metern
+    # noch lesbar. Mehr Spalten waeren auf der Wand zu klein.
+    SPALTEN, BREITE, HOEHE = 4, 6, 4
+    for i, (anzeige, gruppe, _uid) in enumerate(gruppen):
+        g = gruppe if gruppe.startswith("/") else \
+            f"/^{re.escape(gruppe).replace(chr(92) + ' ', ' ')}$/"
+        p.append(panel("stat", anzeige,
+                       (i % SPALTEN) * BREITE, (i // SPALTEN) * HOEHE, BREITE, HOEHE,
+            zbx_probleme(g, schwere=[3, 4, 5]), unit="none",
+            thresholds=schwellen((1, WARN), (3, CRIT), base=GOOD),
+            opts={"graphMode": "none", "colorMode": "background",
+                  "textMode": "value_and_name", "justifyMode": "center",
+                  "reduceOptions": {"calcs": ["count"], "fields": "", "values": False}},
+            desc=f"Offene Probleme ab 'Average' in der Zabbix-Hostgruppe {gruppe}."))
+
+    y = ((len(gruppen) + SPALTEN - 1) // SPALTEN) * HOEHE
+    p.append(panel("table", "Offene Probleme - alle Gruppen", 0, y, 24, 12,
+        zbx_probleme("/.*/", schwere=[3, 4, 5], limit=25),
+        opts={"showHeader": True, "cellHeight": "sm",
+              "sortBy": [{"displayName": "Severity", "desc": True}]},
+        desc="Die Liste, die zur Kachel oben gehoert - ohne die Seite zu wechseln."))
+    return dashboard("noc-gruppen", "NOC \u00b7 Alle Hostgruppen", p,
+                     refresh="30s", zeit="now-24h")
+
+
 def lade_gruppen():
     """config/gruppen.txt einlesen:  Anzeigename | Hostgruppe | Sekunden"""
     datei = ROOT / "config" / "gruppen.txt"
@@ -531,9 +568,20 @@ def main():
         print(f"  {ziel.relative_to(ROOT)}  ({len(d['panels'])} Panels, "
               f"Gruppe: {gruppe})")
 
+    # Die Uebersicht ueber ALLE Gruppen - nur wenn es mehr als eine gibt,
+    # sonst waere sie eine Kopie der einen Gruppenseite.
+    if len(eigene) > 1:
+        d = dash_uebersicht(eigene)
+        (OUT / "noc-gruppen.json").write_text(
+            json.dumps(d, indent=2, ensure_ascii=False) + "\n")
+        print(f"  grafana/dashboards/noc-gruppen.json  ({len(d['panels'])} Panels, "
+              f"Uebersicht ueber {len(eigene)} Gruppen)")
+
     # Verwaiste Dateien entfernen: wer eine Zeile aus gruppen.txt loescht,
     # soll die Seite auch los sein - sonst bleibt sie in Grafana stehen.
     bekannt = {"lagebild.json", "infra.json", "security.json"} | {f"{u}.json" for _, _, u in eigene}
+    if len(eigene) > 1:
+        bekannt.add("noc-gruppen.json")
     for f in OUT.glob("*.json"):
         if f.name not in bekannt:
             f.unlink()
@@ -542,6 +590,11 @@ def main():
     print("Fertig. Grafana liest sie beim naechsten Start (oder nach 30 s) ein.")
     if eigene:
         print("\nIn config/pages.txt eintragen (oder ./scripts/add.sh gruppe nutzen):")
+        if len(eigene) > 1:
+            print(f"  {'Alle Gruppen':<17} | /grafana/d/noc-gruppen/?kiosk&refresh=30s | 60")
+            print("  ^ Diese EINE Zeile zeigt alle Gruppen nebeneinander.")
+            print("    Von den folgenden gehoeren nur die auf die Wand, in die")
+            print("    man wirklich taeglich sieht - sonst dauert ein Umlauf ewig:")
         for anzeige, _, uid in eigene:
             print(f"  {anzeige:<17} | /grafana/d/{uid}/?kiosk&refresh=30s | 45")
 

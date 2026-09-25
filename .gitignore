@@ -33,6 +33,13 @@ config/cve-feeds.txt
 
 # Gerenderte Grafana-Datenquelle enthaelt den Zabbix-Token
 grafana/provisioning/datasources/zabbix.yml
+
+# Wandseiten je Zabbix-Hostgruppe: erzeugt aus config/gruppen.txt (gitignored).
+# Sie gehoeren niemandem ausser dem jeweiligen Pi - waeren sie versioniert,
+# wuerde jeder Build die Dateien des anderen loeschen. Angelegt von
+# ./scripts/build-dashboards.py, das ./scripts/update.sh ohnehin aufruft.
+# lagebild/infra/security bleiben versioniert: die entstehen nur aus Code.
+grafana/dashboards/noc-*.json
 config/news.txt
 config/gruppen.txt
 config/connect.ini

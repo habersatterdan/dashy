@@ -93,6 +93,30 @@ Stelle.
 Entfernen: Zeile aus `config/gruppen.txt` löschen, `./scripts/update.sh` —
 die Seite verschwindet auch aus Grafana.
 
+## Bei vielen Hostgruppen: die Übersichtsseite
+
+Habt ihr zwanzig Hostgruppen und legt je eine Wandseite an, seht ihr jede erst
+nach einer Viertelstunde wieder. Das ist kein Lagebild mehr.
+
+Sobald **mehr als eine** Zeile in `config/gruppen.txt` steht, entsteht darum
+zusätzlich automatisch eine Seite, die **alle Gruppen nebeneinander** zeigt:
+je eine Kachel mit der Zahl der offenen Probleme, grün wenn nichts ansteht,
+darunter die Problemliste über alle Gruppen hinweg.
+
+```
+Alle Gruppen | /grafana/d/noc-gruppen/?kiosk&refresh=30s | 60
+```
+
+**Das ist die Zeile, die auf die Wand gehört.** Eigene Seiten dann nur noch für
+die drei bis fünf Gruppen, in die ihr wirklich täglich seht — nicht für alle.
+Die übrigen Dashboards bleiben trotzdem erreichbar, sie laufen nur nicht mit:
+
+```
+https://<pi>/grafana/d/noc-<name>/?kiosk
+```
+
+---
+
 ## Aufgabe 2 — Eine Weboberfläche einbinden
 
 Grafana, PRTG, CheckMK, vCenter, ein Wiki:
