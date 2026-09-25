@@ -402,7 +402,18 @@ add_gruppe(){
         echo "${antwort}" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | sort | head -15 | sed 's/^/           /'
         local w; w="$(frage 'Trotzdem anlegen? (j/N)')"
         case "${w}" in j|J|y|Y) : ;; *) return 1 ;; esac ;;
-      *) warn "Zabbix nicht erreichbar - lege die Seite ungeprueft an." ;;
+      *) # Nicht einordenbar: dann wenigstens zeigen, WAS kam. "Nicht
+         # erreichbar" ohne die Antwort ist eine Sackgasse - mit ihr steht
+         # die Ursache meist schon da (403 vom Methodenfilter, HTML statt
+         # JSON, leere Antwort bei DNS-Problemen).
+         if [ -z "${antwort}" ]; then
+           warn "Zabbix antwortet nicht (leere Antwort) - lege die Seite ungeprueft an."
+         else
+           warn "Unerwartete Antwort von Zabbix - lege die Seite ungeprueft an."
+           echo "         Es kam zurueck:"
+           echo "           ${antwort}" | cut -c1-200
+         fi
+         echo "         Genauer nachsehen:  ./scripts/check-zabbix.sh" ;;
     esac
   fi
 
