@@ -252,6 +252,19 @@ chmod 600 config/secrets.env
 | Kennzahl fehlt | `docker compose exec connect python /app/connect.py --test` |
 | Platzhalter ohne Wert | `./scripts/render-config.py` — nennt Datei und Schlüssel |
 
+**nginx in der Neustartschleife, alles andere „keine Antwort":** Das ist *ein*
+Fehler, nicht zwölf — nginx liefert jede Wandseite aus. Die Ursache steht immer
+im Log:
+
+```bash
+docker compose logs --tail 20 nginx
+```
+
+Sagt es `chown("/var/cache/nginx/…") failed (1: Operation not permitted)`, fehlt
+dem Container die Capability `CHOWN` (in `docker-compose.yml` unter `nginx:` →
+`cap_add`). Seit dem 25.09.2026 ist sie drin; ältere Stände brauchen
+`./scripts/update.sh`.
+
 **Compose bricht sofort ab mit `env file … not found`:** Schritt 2 wurde
 übersprungen. Vorlagen kopieren, dann erneut.
 

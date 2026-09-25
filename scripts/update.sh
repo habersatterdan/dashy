@@ -50,7 +50,18 @@ uid="${RUN_UID:-$(id -u)}"; gid="${RUN_GID:-$(id -g)}"
 mkdir -p state shots backups
 if [ "$(stat -c '%u' state)" != "${uid}" ]; then
   echo "==> Setze Eigentuemer von ./state auf ${uid}:${gid}"
-  sudo chown -R "${uid}:${gid}" state 2>/dev/null || chown -R "${uid}:${gid}" state
+  # Der Fehlschlag darf NICHT durchrutschen: sonst startet alles, nichts wird
+  # gespeichert, und es faellt erst Tage spaeter auf. Darum am Ende pruefen,
+  # was wirklich dasteht - nicht, ob ein Befehl 0 zurueckgegeben hat.
+  sudo chown -R "${uid}:${gid}" state || chown -R "${uid}:${gid}" state || true
+  if [ "$(stat -c '%u' state)" != "${uid}" ]; then
+    echo
+    echo "ABBRUCH: ./state gehoert $(stat -c '%u:%g' state), gebraucht wird ${uid}:${gid}."
+    echo "  Von Hand nachholen und update.sh erneut starten:"
+    echo "    sudo chown -R ${uid}:${gid} $(pwd)/state"
+    echo "  Stimmen RUN_UID/RUN_GID in .env ueberhaupt? Vergleiche mit: id"
+    exit 1
+  fi
 fi
 
 echo "==> [3/4] Erzeuge Container neu (loest das Inode-Problem)"
@@ -58,6 +69,31 @@ docker compose up -d --force-recreate
 
 echo "==> [4/4] Status"
 docker compose ps
+
+# Ein Container in der Neustartschleife sieht in "docker compose ps" wie eine
+# Randnotiz aus - dabei liefert nginx jede einzelne Wandseite aus. Steht er,
+# ist alles dunkel. Darum hier ausdruecklich nachsehen, statt es dem Blick auf
+# die Tabelle zu ueberlassen.
+echo
+echo "==> Pruefe, ob nginx wirklich ausliefert"
+lage=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  lage="$(curl -sk -m 5 -o /dev/null -w '%{http_code}' https://127.0.0.1/health 2>/dev/null || true)"
+  [ "${lage}" = "200" ] && break
+  sleep 3
+done
+if [ "${lage}" = "200" ]; then
+  echo "    nginx liefert aus (HTTP 200 auf /health)"
+else
+  echo
+  echo "ABBRUCH: nginx antwortet nicht (HTTP ${lage:-000}). Die Wand ist dunkel."
+  echo "  Die letzten Zeilen aus dem Log - die Ursache steht fast immer darin:"
+  echo
+  docker compose logs --tail 15 nginx 2>&1 | sed 's/^/    /'
+  echo
+  echo "  Danach:  ./scripts/status.sh"
+  exit 1
+fi
 
 # Neue Schalter kommen mit Updates dazu, die bestehende .env kennt sie nicht -
 # und ein fehlender Schluessel wirkt wie ein absichtlich gesetzter Vorgabewert.

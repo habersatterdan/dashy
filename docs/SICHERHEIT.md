@@ -39,7 +39,7 @@ Anmeldedaten.
 | Maßnahme | Wirkung |
 |---|---|
 | `no-new-privileges` überall | ein Prozess kann seine Rechte nicht per setuid erhöhen |
-| `cap_drop: ALL` überall | keine Linux-Capabilities; Nginx bekommt genau drei zurück |
+| `cap_drop: ALL` überall | keine Linux-Capabilities; Nginx bekommt genau vier zurück: `NET_BIND_SERVICE` (Port 80/443), `CHOWN` (Cache-Verzeichnisse an den Worker übergeben), `SETUID`/`SETGID` (vom Master auf den Worker wechseln). Fehlt eine, startet Nginx nicht — sichtbar als Neustartschleife, nicht als leise Störung. |
 | Sonde, CVE-Watcher, M365 als **Nicht-root** | ein Fehler dort ist kein Root-Fehler |
 | dieselben Dienste **read-only** | geschrieben wird nur nach `/state` und `/tmp` |
 | `watchtower` **abgeschaltet** | er braucht den Docker-Socket = Root auf dem Pi |
