@@ -44,7 +44,7 @@ feed | CISA Advisories   | cisa       | https://www.cisa.gov/cybersecurity-advis
 # --- Fachnachrichten ----------------------------------------------------------
 # Kein Muss. Sinnvoll, wenn die Wand auch in einem Flur haengt, an dem
 # Nicht-Techniker vorbeikommen - dann ist sie nicht nur rote Zahlen.
-feed | heise Security    | heise-sec  | https://www.heise.de/security/rss/news.rdf                      | deutsch, taeglich
+feed | heise Security    | heise-sec  | https://www.heise.de/security/feed.xml                           | deutsch, taeglich
 feed | Golem Security    | golem-sec  | https://rss.golem.de/rss.php?tp=sec&feed=RSS2.0                 | deutsch
 feed | BleepingComputer  | bleeping   | https://www.bleepingcomputer.com/feed/                          | englisch, sehr schnell
 
