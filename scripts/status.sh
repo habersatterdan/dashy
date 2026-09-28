@@ -43,7 +43,7 @@ fi
 
 # --- Erreichbarkeit ----------------------------------------------------------
 titel "Wandseiten"
-for pfad in /health /signage/ /lage/ /news/ /stoerungen/ /wall/ /woche/; do
+for pfad in /health /signage/ /lage/ /news/ /stoerungen/ /wall/ /woche/ /kennzahlen/ /infoboard/; do
   code="$(curl -sk -m 12 -o /dev/null -w '%{http_code}' "https://127.0.0.1${pfad}" 2>/dev/null)"
   case "${code}" in
     200) ok "${pfad}" ;;
@@ -234,8 +234,17 @@ else ok "Datentraeger: ${frei} % belegt"; fi
 if [ -d backups ] && [ -n "$(ls -A backups 2>/dev/null)" ]; then
   neueste="$(ls -t backups | head -1)"
   alter_tage="$(( ( $(date +%s) - $(stat -c %Y "backups/${neueste}") ) / 86400 ))"
-  [ "${alter_tage}" -le 2 ] && ok "Sicherung: ${neueste} (vor ${alter_tage} Tagen)" \
-    || warn "Juengste Sicherung ist ${alter_tage} Tage alt"
+  # Alter allein genuegt nicht: entscheidend ist, ob config/ drinsteckt. Alles
+  # andere liegt im Git. Ein taggenaues Archiv ohne config/ waere wertlos -
+  # und das faellt sonst erst auf, wenn man es braucht.
+  if tar -tzf "backups/${neueste}" 2>/dev/null | grep -q '^config/'; then
+    [ "${alter_tage}" -le 2 ] && ok "Sicherung: ${neueste} (vor ${alter_tage} Tagen, mit config/)" \
+      || warn "Juengste Sicherung ist ${alter_tage} Tage alt"
+  else
+    bad "Sicherung ${neueste} enthaelt kein config/ - sie sichert nur, was ohnehin im Git liegt"
+    tipp "./scripts/backup.sh   (die neue Fassung nimmt config/ mit)"
+    tipp "Pruefen: ./scripts/backup.sh --pruefen"
+  fi
 else
   warn "Keine Sicherung gefunden"; tipp "./scripts/backup.sh"
 fi

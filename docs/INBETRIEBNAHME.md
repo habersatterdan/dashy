@@ -272,6 +272,41 @@ falscher Wert. Das kann kein Skript für euch entscheiden.
 
 ---
 
+## Schritt 11 — Sicherung anlegen
+
+```bash
+cd ~/dashy
+./scripts/backup.sh
+./scripts/backup.sh --pruefen
+```
+
+**Gesichert wird nur, was es sonst nirgends gibt:** `config/` (Zugangsdaten,
+Sondenziele, Seitenliste, Hostgruppen, Infoboard), `.env`, die Zertifikate und
+`docker-compose.yml`. Alles andere liegt im Git und ist mit einem `git clone`
+zurück.
+
+Das Archiv enthält Geheimnisse und wird deshalb mit Rechten `600` angelegt —
+es gehört nicht in eine Ablage, die jeder lesen darf.
+
+`--pruefen` zeigt den Inhalt des neuesten Archivs und stellt fest, ob es
+lesbar ist und `config/` wirklich enthält. **Eine Sicherung, die man erst im
+Ernstfall prüft, ist eine Wette.**
+
+Zurückspielen:
+
+```bash
+./scripts/backup.sh --hilfe
+```
+
+Nächtlich per cron (02:30):
+
+```bash
+crontab -e
+30 2 * * * cd ~/dashy && ./scripts/backup.sh >> ~/dashy/backups/backup.log 2>&1
+```
+
+---
+
 ## Kurzfassung zum Abtippen
 
 Wenn alles schon eingerichtet ist und ihr nur den neuen Stand wollt:
