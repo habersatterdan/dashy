@@ -548,6 +548,8 @@ services:
       # (config/secrets.env). Sie duerfen hier NICHT stehen: environment
       # ueberschreibt env_file, ein leerer Wert wuerde den echten loeschen.
       - MIN_CVSS=${CVE_MIN_CVSS:-7.0}
+      # > 0: alte CVEs (vor dem Vorjahr) nur melden, wenn sie in den letzten N Tagen neu in KEV kamen.
+      - CVE_ALT_KEV_TAGE=${CVE_ALT_KEV_TAGE:-0}
       - POLL_SECONDS=${CVE_POLL_SECONDS:-1800}
       - MAX_WEBHOOKS_PER_RUN=${CVE_MAX_PER_RUN:-10}
       # true = ein gebuendelter Aufruf je Durchlauf statt einer je CVE.
